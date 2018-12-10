@@ -1,0 +1,22 @@
+git clone https://github.com/edenhill/librdkafka.git
+cd librdkafka
+git checkout v0.11.6
+
+
+# git doesn't work on OEL5.11 because of deprecation of TLS 1.2
+# see https://github.com/nodejs/build/issues/1144#issuecomment-367977741 if you need to use git and github
+
+chmod ugo+x configure
+chmod ugo+x lds-gen.py
+./configure
+make
+
+comment out "WITH_LDS" line in Makefile.config if make generated the error: "/usr/bin/ld:librdkafka.lds:1: syntax error in VERSION script"
+# see https://github.com/edenhill/librdkafka/issues/362#issuecomment-138266361
+
+make
+
+make install
+
+
+https://github.com/edenhill/librdkafka/blob/master/examples/rdkafka_simple_producer.c
