@@ -19,4 +19,7 @@ make
 make install
 
 
+echo "/usr/local/lib" > /etc/ld.so.conf.d/rdconfig.conf
+ldconfig
+
 https://github.com/edenhill/librdkafka/blob/master/examples/rdkafka_simple_producer.c

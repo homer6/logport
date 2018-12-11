@@ -13,7 +13,6 @@ set( LOGPORT_SOURCES
 )
 
 set( LOGPORT_LIBS
-    crypto
     rdkafka
 )
 
