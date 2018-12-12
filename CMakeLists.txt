@@ -10,6 +10,8 @@ include_directories(
 
 set( LOGPORT_SOURCES
     src/LogPort.cc
+    src/KafkaProducer.cc
+    src/InotifyWatcher.cc
 )
 
 set( LOGPORT_LIBS
