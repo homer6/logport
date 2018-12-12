@@ -25,6 +25,7 @@ static InotifyWatcher* inotify_watcher_ptr;
  */
 static void stop( int /*sig*/ ){
 	inotify_watcher_ptr->run = 0;
+	cout << "stopping" << endl;
 }
 
 
@@ -34,7 +35,7 @@ static void stop( int /*sig*/ ){
 int main (int argc, char **argv) {
 
 		if( argc != 4 ){
-			fprintf(stderr, "%% Usage: %s <broker> <topic> <file-to-watch>\n", argv[0]);
+			fprintf(stderr, "%% Usage: %s <bootstrap-brokers-list> <topic> <file-to-watch>\n", argv[0]);
 			return 1;
 		}
 
@@ -70,6 +71,8 @@ int main (int argc, char **argv) {
 
 			//send difference from last_confirmed_position and current_file_position to kafka before starting to listen with inotify
 			*/
+
+			kafka_producer.produce( "starting up" );
 
 			watcher.watch(); //main loop; blocks
 

@@ -97,7 +97,7 @@ void InotifyWatcher::watch(){
     //listen to events
     while( this->run ){
 
-        inotify_event_num_read = read(this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH);
+        inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
         if( inotify_event_num_read == 0 ){
             //fprintf( stderr, "%% read() from inotify fd returned 0!" );
             throw std::runtime_error( "read() from inotify fd returned 0" );

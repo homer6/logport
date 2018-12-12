@@ -1,0 +1,16 @@
+- name: Install Kafka Server
+  hosts: 127.0.0.1
+  connection: local
+
+  pre_tasks:
+    - name: Update apt
+      become: yes
+      apt:
+        cache_valid_time: 1800
+        update_cache: yes
+      tags:
+        - build
+
+  roles:
+    - name: sansible.zookeeper
+    - name: sansible.kafka
