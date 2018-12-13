@@ -12,6 +12,8 @@
 
 #include <unistd.h>
 
+#include "LevelTriggeredEpollWatcher.h"
+
 
 // Display information from inotify_event structure
 // see: http://man7.org/tlpi/code/online/book/inotify/demo_inotify.c.html
@@ -75,6 +77,7 @@ InotifyWatcher::InotifyWatcher( const string &watched_file, KafkaProducer &kafka
         throw std::runtime_error( "Failed to add inotify watch descriptor: errno " + string(error_string_buffer) );
     }
 
+
 }
 
 
@@ -92,45 +95,57 @@ void InotifyWatcher::watch(){
     char *p;
     struct inotify_event *in_event;
 
-    char error_string_buffer[128];    
+    char error_string_buffer[128];
+
+
+    LevelTriggeredEpollWatcher epoll_watcher( this->inotify_fd );
+
 
     //listen to events
     while( this->run ){
 
-        inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
-        if( inotify_event_num_read == 0 ){
-            //fprintf( stderr, "%% read() from inotify fd returned 0!" );
-            throw std::runtime_error( "read() from inotify fd returned 0" );
-        } 
+        if( epoll_watcher.watch(1000) ){
 
-        if( inotify_event_num_read == -1 ){
-            //fprintf( stderr, "%% read() errno %d", errno );
-            snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
-            throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
-        }
+            //if there are new events waiting on the inotify_fd
 
-        printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
+            inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
+            if( inotify_event_num_read == 0 ){
+                //fprintf( stderr, "%% read() from inotify fd returned 0!" );
+                throw std::runtime_error( "read() from inotify fd returned 0" );
+            } 
 
-        /* Process all of the events in buffer returned by read() */
+            if( inotify_event_num_read == -1 ){
+                //fprintf( stderr, "%% read() errno %d", errno );
+                snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
+            }
 
-        for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
-            in_event = (struct inotify_event *) p;
-            displayInotifyEvent(in_event);
-            p += sizeof(struct inotify_event) + in_event->len;
-        }
+            printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
 
-        const string message = "hello";
+            /* Process all of the events in buffer returned by read() */
 
-        if( message.size() == 0 ){
-            /* only serve delivery reports */
+            for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
+                in_event = (struct inotify_event *) p;
+                displayInotifyEvent(in_event);
+                p += sizeof(struct inotify_event) + in_event->len;
+            }
+
+            const string message = "hello";
+
+            continue;
+
+            this->kafka_producer.produce( message );
+
+
+        }else{
+
+            //no events waiting on inotify_fd; timed out watching for 1000ms
+
+            // only serve delivery reports
             this->kafka_producer.poll();
             continue;
+
         }
-
-        continue;
-
-
-        this->kafka_producer.produce( message );
 
 
         /* A producer application should continually serve

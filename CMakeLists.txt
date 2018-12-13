@@ -12,6 +12,7 @@ set( LOGPORT_SOURCES
     src/LogPort.cc
     src/KafkaProducer.cc
     src/InotifyWatcher.cc
+    src/LevelTriggeredEpollWatcher.cc
 )
 
 set( LOGPORT_LIBS
