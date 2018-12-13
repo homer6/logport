@@ -10,8 +10,8 @@ class LevelTriggeredEpollWatcher{
         bool watch( int timeout_ms = 1000 ); //throws on failure
 
     protected:
-    	int watching_file_descriptor;
-    	int epollfd;
+        int watching_file_descriptor;
+        int epollfd;
         
 };
 

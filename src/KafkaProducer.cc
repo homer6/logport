@@ -64,12 +64,12 @@
  */
 static void dr_msg_cb( rd_kafka_t */*rk*/, const rd_kafka_message_t *rkmessage, void */*opaque*/ ){
 
-	if( rkmessage->err )
-		fprintf( stderr, "%% Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
-	else
-		fprintf( stderr, "%% Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
+    if( rkmessage->err )
+        fprintf( stderr, "%% Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
+    else
+        fprintf( stderr, "%% Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
 
-	/* The rkmessage is destroyed automatically by librdkafka */
+    /* The rkmessage is destroyed automatically by librdkafka */
 }
 
 
@@ -81,55 +81,55 @@ KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, i
 {
 
 
-	/*
-	 * Create Kafka client configuration place-holder
-	 */
-	rd_kafka_conf_t *conf;      /* Temporary configuration object */ 
-	conf = rd_kafka_conf_new();
+    /*
+     * Create Kafka client configuration place-holder
+     */
+    rd_kafka_conf_t *conf;      /* Temporary configuration object */ 
+    conf = rd_kafka_conf_new();
 
-	/* Set bootstrap broker(s) as a comma-separated list of
-	 * host or host:port (default port 9092).
-	 * librdkafka will use the bootstrap brokers to acquire the full
-	 * set of brokers from the cluster. */
-	if( rd_kafka_conf_set(conf, "bootstrap.servers", brokers_list.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-		//fprintf(stderr, "%s\n", errstr);
-		rd_kafka_conf_destroy(conf);
-		throw std::runtime_error( string("KafkaProducer: Failed to set configuration: ") + errstr );
-	}
+    /* Set bootstrap broker(s) as a comma-separated list of
+     * host or host:port (default port 9092).
+     * librdkafka will use the bootstrap brokers to acquire the full
+     * set of brokers from the cluster. */
+    if( rd_kafka_conf_set(conf, "bootstrap.servers", brokers_list.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+        //fprintf(stderr, "%s\n", errstr);
+        rd_kafka_conf_destroy(conf);
+        throw std::runtime_error( string("KafkaProducer: Failed to set configuration: ") + errstr );
+    }
 
-	/* Set the delivery report callback.
-	 * This callback will be called once per message to inform
-	 * the application if delivery succeeded or failed.
-	 * See dr_msg_cb() above. */
-	rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
-
-
-	/*
-	 * Create producer instance.
-	 *
-	 * NOTE: rd_kafka_new() takes ownership of the conf object
-	 *       and the application must not reference it again after
-	 *       this call.
-	 */
-	this->rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
-	if( !this->rk ){
-		//fprintf( stderr, "%% Failed to create new producer: %s\n", errstr );
-		throw std::runtime_error( string("KafkaProducer: Failed to create new producer: ") + rd_kafka_err2str(rd_kafka_last_error()) );
-	}
+    /* Set the delivery report callback.
+     * This callback will be called once per message to inform
+     * the application if delivery succeeded or failed.
+     * See dr_msg_cb() above. */
+    rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
 
-	/* Create topic object that will be reused for each message
-	 * produced.
-	 *
-	 * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
-	 * are long-lived objects that should be reused as much as possible.
-	 */
-	this->rkt = rd_kafka_topic_new( this->rk, topic.c_str(), NULL );
-	if( !this->rkt ){
-		//fprintf( stderr, "%% Failed to create topic object: %s\n", rd_kafka_err2str(rd_kafka_last_error()) );
-		rd_kafka_destroy(this->rk);
-		throw std::runtime_error( string("KafkaProducer: Failed to create topic object: ") + rd_kafka_err2str(rd_kafka_last_error()) );
-	}
+    /*
+     * Create producer instance.
+     *
+     * NOTE: rd_kafka_new() takes ownership of the conf object
+     *       and the application must not reference it again after
+     *       this call.
+     */
+    this->rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
+    if( !this->rk ){
+        //fprintf( stderr, "%% Failed to create new producer: %s\n", errstr );
+        throw std::runtime_error( string("KafkaProducer: Failed to create new producer: ") + rd_kafka_err2str(rd_kafka_last_error()) );
+    }
+
+
+    /* Create topic object that will be reused for each message
+     * produced.
+     *
+     * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
+     * are long-lived objects that should be reused as much as possible.
+     */
+    this->rkt = rd_kafka_topic_new( this->rk, topic.c_str(), NULL );
+    if( !this->rkt ){
+        //fprintf( stderr, "%% Failed to create topic object: %s\n", rd_kafka_err2str(rd_kafka_last_error()) );
+        rd_kafka_destroy(this->rk);
+        throw std::runtime_error( string("KafkaProducer: Failed to create topic object: ") + rd_kafka_err2str(rd_kafka_last_error()) );
+    }
 
 
 }
@@ -138,17 +138,17 @@ KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, i
 
 KafkaProducer::~KafkaProducer(){
 
-	/* Wait for final messages to be delivered or fail.
-	 * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
-	 * waits for all messages to be delivered. */
-	//fprintf(stderr, "%% Flushing final messages..\n");
-	rd_kafka_flush(this->rk, 10*1000 /* wait for max 10 seconds */);
+    /* Wait for final messages to be delivered or fail.
+     * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
+     * waits for all messages to be delivered. */
+    //fprintf(stderr, "%% Flushing final messages..\n");
+    rd_kafka_flush(this->rk, 10*1000 /* wait for max 10 seconds */);
 
-	/* Destroy topic object */
-	rd_kafka_topic_destroy(this->rkt);
+    /* Destroy topic object */
+    rd_kafka_topic_destroy(this->rkt);
 
-	/* Destroy the producer instance */
-	rd_kafka_destroy(this->rk);
+    /* Destroy the producer instance */
+    rd_kafka_destroy(this->rk);
 
 }
 
@@ -157,96 +157,96 @@ KafkaProducer::~KafkaProducer(){
 void KafkaProducer::produce( const string& message ){
 
 
-	/**
-	 * @brief Produce and send a single message to broker.
-	 *
-	 * \p rkt is the target topic which must have been previously created with
-	 * `rd_kafka_topic_new()`.
-	 *
-	 * `rd_kafka_produce()` is an asynch non-blocking API.
-	 * See `rd_kafka_conf_set_dr_msg_cb` on how to setup a callback to be called
-	 * once the delivery status (success or failure) is known. The delivery report
-	 * is trigged by the application calling `rd_kafka_poll()` (at regular
-	 * intervals) or `rd_kafka_flush()` (at termination). 
-	 *
-	 * Since producing is asynchronous, you should call `rd_kafka_flush()` before
-	 * you destroy the producer. Otherwise, any outstanding messages will be
-	 * silently discarded.
-	 *
-	 * When temporary errors occur, librdkafka automatically retries to produce the
-	 * messages. Retries are triggered after retry.backoff.ms and when the
-	 * leader broker for the given partition is available. Otherwise, librdkafka
-	 * falls back to polling the topic metadata to monitor when a new leader is
-	 * elected (see the topic.metadata.refresh.fast.interval.ms and
-	 * topic.metadata.refresh.interval.ms configurations) and then performs a
-	 * retry. A delivery error will occur if the message could not be produced
-	 * within message.timeout.ms.
-	 *
-	 * See the "Message reliability" chapter in INTRODUCTION.md for more
-	 * information.
-	 *
-	 * \p partition is the target partition, either:
-	 *   - RD_KAFKA_PARTITION_UA (unassigned) for
-	 *     automatic partitioning using the topic's partitioner function, or
-	 *   - a fixed partition (0..N)
-	 *
-	 * \p msgflags is zero or more of the following flags OR:ed together:
-	 *    RD_KAFKA_MSG_F_BLOCK - block \p produce*() call if
-	 *                           \p queue.buffering.max.messages or
-	 *                           \p queue.buffering.max.kbytes are exceeded.
-	 *                           Messages are considered in-queue from the point they
-	 *                           are accepted by produce() until their corresponding
-	 *                           delivery report callback/event returns.
-	 *                           It is thus a requirement to call 
-	 *                           rd_kafka_poll() (or equiv.) from a separate
-	 *                           thread when F_BLOCK is used.
-	 *                           See WARNING on \c RD_KAFKA_MSG_F_BLOCK above.
-	 *
-	 *    RD_KAFKA_MSG_F_FREE - rdkafka will free(3) \p payload when it is done
-	 *                          with it.
-	 *    RD_KAFKA_MSG_F_COPY - the \p payload data will be copied and the 
-	 *                          \p payload pointer will not be used by rdkafka
-	 *                          after the call returns.
-	 *    RD_KAFKA_MSG_F_PARTITION - produce_batch() will honour per-message
-	 *                               partition, either set manually or by the
-	 *                               configured partitioner.
-	 *
-	 *    .._F_FREE and .._F_COPY are mutually exclusive.
-	 *
-	 *    If the function returns -1 and RD_KAFKA_MSG_F_FREE was specified, then
-	 *    the memory associated with the payload is still the caller's
-	 *    responsibility.
-	 *
-	 * \p payload is the message payload of size \p len bytes.
-	 *
-	 * \p key is an optional message key of size \p keylen bytes, if non-NULL it
-	 * will be passed to the topic partitioner as well as be sent with the
-	 * message to the broker and passed on to the consumer.
-	 *
-	 * \p msg_opaque is an optional application-provided per-message opaque
-	 * pointer that will provided in the delivery report callback (`dr_cb`) for
-	 * referencing this message.
-	 *
-	 * @remark on_send() and on_acknowledgement() interceptors may be called
-	 *         from this function. on_acknowledgement() will only be called if the
-	 *         message fails partitioning.
-	 *
-	 * @returns 0 on success or -1 on error in which case errno is set accordingly:
-	 *  - ENOBUFS  - maximum number of outstanding messages has been reached:
-	 *               "queue.buffering.max.messages"
-	 *               (RD_KAFKA_RESP_ERR__QUEUE_FULL)
-	 *  - EMSGSIZE - message is larger than configured max size:
-	 *               "messages.max.bytes".
-	 *               (RD_KAFKA_RESP_ERR_MSG_SIZE_TOO_LARGE)
-	 *  - ESRCH    - requested \p partition is unknown in the Kafka cluster.
-	 *               (RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION)
-	 *  - ENOENT   - topic is unknown in the Kafka cluster.
-	 *               (RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
-	 *  - ECANCELED - fatal error has been raised on producer, see
-	 *                rd_kafka_fatal_error().
-	 *
-	 * @sa Use rd_kafka_errno2err() to convert `errno` to rdkafka error code.
-	 */
+    /**
+     * @brief Produce and send a single message to broker.
+     *
+     * \p rkt is the target topic which must have been previously created with
+     * `rd_kafka_topic_new()`.
+     *
+     * `rd_kafka_produce()` is an asynch non-blocking API.
+     * See `rd_kafka_conf_set_dr_msg_cb` on how to setup a callback to be called
+     * once the delivery status (success or failure) is known. The delivery report
+     * is trigged by the application calling `rd_kafka_poll()` (at regular
+     * intervals) or `rd_kafka_flush()` (at termination). 
+     *
+     * Since producing is asynchronous, you should call `rd_kafka_flush()` before
+     * you destroy the producer. Otherwise, any outstanding messages will be
+     * silently discarded.
+     *
+     * When temporary errors occur, librdkafka automatically retries to produce the
+     * messages. Retries are triggered after retry.backoff.ms and when the
+     * leader broker for the given partition is available. Otherwise, librdkafka
+     * falls back to polling the topic metadata to monitor when a new leader is
+     * elected (see the topic.metadata.refresh.fast.interval.ms and
+     * topic.metadata.refresh.interval.ms configurations) and then performs a
+     * retry. A delivery error will occur if the message could not be produced
+     * within message.timeout.ms.
+     *
+     * See the "Message reliability" chapter in INTRODUCTION.md for more
+     * information.
+     *
+     * \p partition is the target partition, either:
+     *   - RD_KAFKA_PARTITION_UA (unassigned) for
+     *     automatic partitioning using the topic's partitioner function, or
+     *   - a fixed partition (0..N)
+     *
+     * \p msgflags is zero or more of the following flags OR:ed together:
+     *    RD_KAFKA_MSG_F_BLOCK - block \p produce*() call if
+     *                           \p queue.buffering.max.messages or
+     *                           \p queue.buffering.max.kbytes are exceeded.
+     *                           Messages are considered in-queue from the point they
+     *                           are accepted by produce() until their corresponding
+     *                           delivery report callback/event returns.
+     *                           It is thus a requirement to call 
+     *                           rd_kafka_poll() (or equiv.) from a separate
+     *                           thread when F_BLOCK is used.
+     *                           See WARNING on \c RD_KAFKA_MSG_F_BLOCK above.
+     *
+     *    RD_KAFKA_MSG_F_FREE - rdkafka will free(3) \p payload when it is done
+     *                          with it.
+     *    RD_KAFKA_MSG_F_COPY - the \p payload data will be copied and the 
+     *                          \p payload pointer will not be used by rdkafka
+     *                          after the call returns.
+     *    RD_KAFKA_MSG_F_PARTITION - produce_batch() will honour per-message
+     *                               partition, either set manually or by the
+     *                               configured partitioner.
+     *
+     *    .._F_FREE and .._F_COPY are mutually exclusive.
+     *
+     *    If the function returns -1 and RD_KAFKA_MSG_F_FREE was specified, then
+     *    the memory associated with the payload is still the caller's
+     *    responsibility.
+     *
+     * \p payload is the message payload of size \p len bytes.
+     *
+     * \p key is an optional message key of size \p keylen bytes, if non-NULL it
+     * will be passed to the topic partitioner as well as be sent with the
+     * message to the broker and passed on to the consumer.
+     *
+     * \p msg_opaque is an optional application-provided per-message opaque
+     * pointer that will provided in the delivery report callback (`dr_cb`) for
+     * referencing this message.
+     *
+     * @remark on_send() and on_acknowledgement() interceptors may be called
+     *         from this function. on_acknowledgement() will only be called if the
+     *         message fails partitioning.
+     *
+     * @returns 0 on success or -1 on error in which case errno is set accordingly:
+     *  - ENOBUFS  - maximum number of outstanding messages has been reached:
+     *               "queue.buffering.max.messages"
+     *               (RD_KAFKA_RESP_ERR__QUEUE_FULL)
+     *  - EMSGSIZE - message is larger than configured max size:
+     *               "messages.max.bytes".
+     *               (RD_KAFKA_RESP_ERR_MSG_SIZE_TOO_LARGE)
+     *  - ESRCH    - requested \p partition is unknown in the Kafka cluster.
+     *               (RD_KAFKA_RESP_ERR__UNKNOWN_PARTITION)
+     *  - ENOENT   - topic is unknown in the Kafka cluster.
+     *               (RD_KAFKA_RESP_ERR__UNKNOWN_TOPIC)
+     *  - ECANCELED - fatal error has been raised on producer, see
+     *                rd_kafka_fatal_error().
+     *
+     * @sa Use rd_kafka_errno2err() to convert `errno` to rdkafka error code.
+     */
 
 
 
@@ -309,7 +309,7 @@ retry:
 
     } else {
 
-    	//successfully queued message
+        //successfully queued message
 
         //fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt) );
 
@@ -322,6 +322,6 @@ retry:
 
 void KafkaProducer::poll( int timeout_ms ){
 
-	rd_kafka_poll( this->rk, timeout_ms );
+    rd_kafka_poll( this->rk, timeout_ms );
 
 }

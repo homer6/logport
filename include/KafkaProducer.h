@@ -27,10 +27,10 @@ class KafkaProducer{
         string topic;
         int32_t partition;
 
-		rd_kafka_t *rk;             /* Producer instance handle */
-		rd_kafka_topic_t *rkt;      /* Topic object */
-		
-		char errstr[512];           /* librdkafka API error reporting buffer */		
+        rd_kafka_t *rk;             /* Producer instance handle */
+        rd_kafka_topic_t *rkt;      /* Topic object */
+        
+        char errstr[512];           /* librdkafka API error reporting buffer */     
 
 };
 
