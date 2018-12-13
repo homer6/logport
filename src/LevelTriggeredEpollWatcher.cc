@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <errno.h>
+
 #include <string>
 using std::string;
 
@@ -62,9 +64,9 @@ bool LevelTriggeredEpollWatcher::watch( int timeout_ms ){
     char error_string_buffer[128];
 
     number_of_fds = epoll_wait( this->epollfd, events, MAX_EVENTS, timeout_ms );
-    if( number_of_fds == -1 ){
-        snprintf( error_string_buffer, sizeof(error_string_buffer), "%d", number_of_fds );
-        throw std::runtime_error( "Failed on epoll_wait: " + string(error_string_buffer) );
+    if( number_of_fds == -1 && errno != EINTR ){
+        snprintf( error_string_buffer, sizeof(error_string_buffer), "%d", errno );
+        throw std::runtime_error( "Failed on epoll_wait. errno: " + string(error_string_buffer) );
     }
 
     for( int n = 0; n < number_of_fds; ++n ){
