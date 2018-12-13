@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "LevelTriggeredEpollWatcher.h"
 
@@ -50,6 +51,7 @@ static void displayInotifyEvent( struct inotify_event *i ){
 
 #define INOTIFY_EVENT_BUFFER_LENGTH (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
+#define LOG_READ_BUFFER_SIZE 4096
 
 
 
@@ -88,6 +90,7 @@ InotifyWatcher::~InotifyWatcher(){
 }
 
 
+
 void InotifyWatcher::watch(){
 
     char inotify_event_buffer[INOTIFY_EVENT_BUFFER_LENGTH] __attribute__ ((aligned(8)));
@@ -96,6 +99,15 @@ void InotifyWatcher::watch(){
     struct inotify_event *in_event;
 
     char error_string_buffer[128];
+
+
+    int watched_file_fd = open( watched_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );
+    if( watched_file_fd == -1 ){
+        snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+        throw std::runtime_error( "Failed to open log file: errno " + string(error_string_buffer) );
+    }
+
+    char log_read_buffer[LOG_READ_BUFFER_SIZE];
 
 
     LevelTriggeredEpollWatcher epoll_watcher( this->inotify_fd );
@@ -130,11 +142,15 @@ void InotifyWatcher::watch(){
                 p += sizeof(struct inotify_event) + in_event->len;
             }
 
-            const string message = "hello";
+
+            int bytes_read = read( watched_file_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
+
+            if( bytes_read > 0 ){
+                const string message( log_read_buffer, bytes_read );
+                this->kafka_producer.produce( message );
+            }
 
             continue;
-
-            this->kafka_producer.produce( message );
 
 
         }else{
