@@ -137,10 +137,23 @@ KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, c
      * librdkafka will use the bootstrap brokers to acquire the full
      * set of brokers from the cluster. */
     if( rd_kafka_conf_set(conf, "bootstrap.servers", brokers_list.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-        //fprintf(stderr, "%s\n", errstr);
         rd_kafka_conf_destroy(conf);
-        throw std::runtime_error( string("KafkaProducer: Failed to set configuration: ") + errstr );
+        throw std::runtime_error( string("KafkaProducer: Failed to set configuration for bootstrap.servers: ") + errstr );
     }
+
+    const string message_timeout_ms = "10000"; //10 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
+    if( rd_kafka_conf_set(conf, "message.timeout.ms", message_timeout_ms.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+        rd_kafka_conf_destroy(conf);
+        throw std::runtime_error( string("KafkaProducer: Failed to set configuration for message.timeout.ms: ") + errstr );
+    }
+
+    /*
+    const string socket_max_fails = "100";
+    if( rd_kafka_conf_set(conf, "socket.max.fails", socket_max_fails.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+        rd_kafka_conf_destroy(conf);
+        throw std::runtime_error( string("KafkaProducer: Failed to set configuration for socket.max.fails: ") + errstr );
+    }
+    */
 
     /* Set the delivery report callback.
      * This callback will be called once per message to inform
@@ -187,7 +200,8 @@ KafkaProducer::~KafkaProducer(){
      * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
      * waits for all messages to be delivered. */
     //fprintf(stderr, "%% Flushing final messages..\n");
-    rd_kafka_flush(this->rk, 10*1000 /* wait for max 10 seconds */);
+    rd_kafka_flush(this->rk, 15 * 1000 /* wait for max 15 seconds */);
+    //this wait must be longer than the message.timeout.ms in the conf above or the messages will be lost and not stored in the undelivered_log
 
     /* Destroy topic object */
     rd_kafka_topic_destroy(this->rkt);

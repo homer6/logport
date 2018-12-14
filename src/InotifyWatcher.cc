@@ -163,6 +163,7 @@ void InotifyWatcher::watch(){
 
         }else{
 
+            this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
             this->kafka_producer.produce( "starting up" );
 
         }
@@ -324,6 +325,8 @@ void InotifyWatcher::watch(){
                             this->kafka_producer.produce( previous_log_partial );
                             previous_log_partial.clear();
                         }
+
+                        std::cout << "Finished replaying undelivered log." << std::endl;
                     }
 
                     if( log_being_rotated ){
