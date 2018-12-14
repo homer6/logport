@@ -44,6 +44,6 @@ echo "sample log entry at `date`" >> sample.log
 # Watching
 
 ```
-kafkacat -C -b 127.0.0.1 -t hello
+kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 ```
 

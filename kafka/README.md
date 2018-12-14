@@ -17,5 +17,5 @@ See https://github.com/sansible/kafka for non-local installations.
 
 ```
 apt install kafkacat
-kafkacat -C -b 127.0.0.1 -t hello
+kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 ```

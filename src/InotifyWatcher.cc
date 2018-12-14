@@ -13,6 +13,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include <algorithm>
+#include <iostream>
+#include <iterator>
+
 #include "LevelTriggeredEpollWatcher.h"
 
 
@@ -51,7 +55,7 @@ static void displayInotifyEvent( struct inotify_event *i ){
 
 #define INOTIFY_EVENT_BUFFER_LENGTH (10 * (sizeof(struct inotify_event) + NAME_MAX + 1))
 
-#define LOG_READ_BUFFER_SIZE 4096
+#define LOG_READ_BUFFER_SIZE 64 * 1024
 
 
 
@@ -112,46 +116,60 @@ void InotifyWatcher::watch(){
 
     LevelTriggeredEpollWatcher epoll_watcher( this->inotify_fd );
 
+    //bool log_being_rotated = false;
+    //bool log_being_modified = false;
+    bool startup = true;
+    bool try_read = false;
+
+    string previous_log_partial;
+
 
     //listen to events
     while( this->run ){
 
-        if( epoll_watcher.watch(1000) ){
+        if( !startup && epoll_watcher.watch(1000) ){
 
-            //if there are new events waiting on the inotify_fd
+            //if there are new events waiting on the inotify_fd, read the events
+                inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
+                if( inotify_event_num_read == 0 ){
+                    //fprintf( stderr, "%% read() from inotify fd returned 0!" );
+                    throw std::runtime_error( "read() from inotify fd returned 0" );
+                } 
 
-            inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
-            if( inotify_event_num_read == 0 ){
-                //fprintf( stderr, "%% read() from inotify fd returned 0!" );
-                throw std::runtime_error( "read() from inotify fd returned 0" );
-            } 
+                if( inotify_event_num_read == -1 ){
+                    //fprintf( stderr, "%% read() errno %d", errno );
+                    snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                    throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
+                }
 
-            if( inotify_event_num_read == -1 ){
-                //fprintf( stderr, "%% read() errno %d", errno );
-                snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
-                throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
-            }
-
-            printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
-
-            /* Process all of the events in buffer returned by read() */
-
-            for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
-                in_event = (struct inotify_event *) p;
-                displayInotifyEvent(in_event);
-                p += sizeof(struct inotify_event) + in_event->len;
-            }
+                printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
 
 
-            int bytes_read = read( watched_file_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
+            //process all of the inotify events
 
-            if( bytes_read > 0 ){
-                const string message( log_read_buffer, bytes_read );
-                this->kafka_producer.produce( message );
-            }
+                for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
 
-            continue;
+                    in_event = (struct inotify_event *) p;
 
+                    if( in_event->mask & IN_MOVE_SELF ){
+                        //this is being logrotated
+                        //log_being_rotated = true;
+                        try_read = true;
+                    }
+
+                    if( in_event->mask & IN_MODIFY || in_event->mask & IN_CLOSE_WRITE ){
+                        //this is being modified
+                        //log_being_modified = true;
+                        try_read = true;
+                    }
+
+                    displayInotifyEvent(in_event);
+
+                    p += sizeof(struct inotify_event) + in_event->len;
+
+                }
+
+            
 
         }else{
 
@@ -159,9 +177,88 @@ void InotifyWatcher::watch(){
 
             // only serve delivery reports
             this->kafka_producer.poll();
-            continue;
 
         }
+
+
+            
+
+        if( startup || try_read ){
+
+            //read some input from the log file
+
+                int bytes_read = read( watched_file_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
+
+                if( bytes_read > 0 ){
+
+                    string message( log_read_buffer, bytes_read );
+
+                    //append previous, if applicable
+                        if( previous_log_partial.size() ){
+                            message = previous_log_partial + message;
+                            previous_log_partial.clear();
+                        }
+
+                    //strip incomplete (from the last newline character), if applicable (placing the partial in `previous_log_partial`)
+                    //this will send multiple lines in a single message (batching)
+                        string::iterator previous_it, current_it = message.end();
+                        char current_char;
+                        int next_length = -1;
+
+                        while( current_it != message.begin() ){
+
+                            previous_it = current_it;
+                            current_it--;
+
+                            next_length++;
+                            current_char = *current_it;
+
+                            if( current_char == '\n' ){
+
+                                string sent_message;
+                                sent_message.reserve( message.size() );
+                                std::copy( message.begin(), current_it, std::back_inserter(sent_message) ); //drops the new line
+
+                                if( next_length > 0 ){
+                                    previous_log_partial.reserve( message.size() );
+                                    std::copy( previous_it, message.end(), std::back_inserter(previous_log_partial) );
+                                }
+
+                                if( sent_message.size() > 0 ){
+                                    //handle consecutive newline characters (by dropping them)
+                                    this->kafka_producer.produce( sent_message );
+                                    this->kafka_producer.poll();
+                                }
+
+                                //std::cout << "message(" << message.size() << "): " << message << std::endl;
+                                //std::cout << "sent_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                //std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
+
+                                break;
+
+                            }
+
+                        }
+
+                        if( current_it == message.begin() ){
+                            //no newline found
+                            previous_log_partial += message;
+                        }
+
+                }else{
+
+                    if( startup ){
+                        //startup will continue until read = zero bytes
+                        startup = false;
+                    }
+
+                }
+
+                //log_being_modified = false;
+                try_read = false;
+
+        }
+
 
 
         /* A producer application should continually serve
@@ -175,7 +272,7 @@ void InotifyWatcher::watch(){
          * to make sure previously produced messages have their
          * delivery report callback served (and any other callbacks
          * you register). */
-        this->kafka_producer.poll();
+        //this->kafka_producer.poll();
 
     }
 
