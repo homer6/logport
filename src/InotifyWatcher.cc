@@ -254,7 +254,8 @@ void InotifyWatcher::watch(){
                     }
 
                     if( log_being_rotated ){
-                        this->run = false;
+                        this->run = false;  //to exit on logrotate (after all bytes are drained)
+                        //ensure that logrotate has the `delaycompress` option so that trailing bytes are properly drained
                     }
 
                 }
