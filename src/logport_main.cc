@@ -32,8 +32,8 @@ static void stop( int /*sig*/ ){
 
 int main (int argc, char **argv) {
 
-        if( argc != 4 ){
-            cerr << "Usage: " << argv[0] << " <bootstrap-brokers-list> <topic> <file-to-watch>" << endl;
+        if( argc != 5 ){
+            cerr << "Usage: " << argv[0] << " <bootstrap-brokers-list> <topic> <file-to-watch> <undelivered-log>" << endl;
             cerr << "See: https://github.com/homer6/logport" << endl;
             return 1;
         }
@@ -44,14 +44,15 @@ int main (int argc, char **argv) {
             string brokers_list( argv[1] );
             string topic( argv[2] );
             string file_to_watch( argv[3] );
+            string undelivered_log( argv[4] );
 
             /* Signal handler for clean shutdown */
             signal(SIGINT, stop);
 
 
-            KafkaProducer kafka_producer( brokers_list, topic );
+            KafkaProducer kafka_producer( brokers_list, topic, undelivered_log );  
 
-            InotifyWatcher watcher( file_to_watch, kafka_producer );
+            InotifyWatcher watcher( file_to_watch, undelivered_log, kafka_producer );  //expects undelivered log to exist
             inotify_watcher_ptr = &watcher;
 
 
@@ -70,8 +71,6 @@ int main (int argc, char **argv) {
 
             //send difference from last_confirmed_position and current_file_position to kafka before starting to listen with inotify
             */
-
-            kafka_producer.produce( "starting up" );
 
             watcher.watch(); //main loop; blocks
 

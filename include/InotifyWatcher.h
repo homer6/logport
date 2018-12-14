@@ -12,7 +12,7 @@ using std::vector;
 class InotifyWatcher{
 
     public:
-        InotifyWatcher( const string& watched_file, KafkaProducer &kafka_producer );
+        InotifyWatcher( const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
         ~InotifyWatcher();
 
         void watch(); //throws on failure
@@ -21,10 +21,15 @@ class InotifyWatcher{
 
     protected:
         string watched_file;
+
+        string undelivered_log;
+        int undelivered_log_fd;
+
         KafkaProducer &kafka_producer;
 
         int inotify_fd;
         int inotify_watch_descriptor;
+
 };
 
 

@@ -46,10 +46,18 @@
 #include <signal.h>
 #include <string.h>
 
+#include <errno.h>
 
 #include <stdexcept>
 
+#include <unistd.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+
+static int undelivered_log_fd_static;
 
 /**
  * @brief Message delivery report callback.
@@ -64,22 +72,59 @@
  */
 static void dr_msg_cb( rd_kafka_t */*rk*/, const rd_kafka_message_t *rkmessage, void */*opaque*/ ){
 
-    if( rkmessage->err )
-        fprintf( stderr, "%% Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
-    else
-        fprintf( stderr, "%% Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
+    if( rkmessage->err ){
+
+        fprintf( stderr, "Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
+
+        if( undelivered_log_fd_static != -1 ){
+
+            int result_bytes = write( undelivered_log_fd_static, rkmessage->payload, rkmessage->len );
+
+            if( result_bytes < 0 ){
+                fprintf( stderr, "Failed to write to undelivered_log. errno: %d\n", errno );
+            }else{
+                if( (size_t)result_bytes != rkmessage->len ){
+                    fprintf( stderr, "Write mismatch in undelivered_log. %lu bytes expected but only %lu written.\n", rkmessage->len, (size_t)result_bytes );
+                }
+            }
+
+
+
+            //append newline
+                char newline_buffer[10];
+                newline_buffer[0] = '\n';
+
+                result_bytes = write( undelivered_log_fd_static, newline_buffer, 1 );
+                if( result_bytes < 0 ){
+                    fprintf( stderr, "Failed to write to undelivered_log newline. errno: %d\n", errno );
+                }
+            
+
+        }else{
+
+            fprintf( stderr, "FAILED TO RECORD UNDELIVERED MESSAGES\n" );
+
+        }
+
+    }else{
+
+        fprintf( stderr, "Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
+
+    }
 
     /* The rkmessage is destroyed automatically by librdkafka */
+
 }
 
 
 
 
 
-KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, int32_t partition )
-        :brokers_list(brokers_list), topic(topic), partition(partition)
+KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, const string &undelivered_log )
+        :brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
 {
 
+    undelivered_log_fd_static = -1;
 
     /*
      * Create Kafka client configuration place-holder
@@ -149,6 +194,13 @@ KafkaProducer::~KafkaProducer(){
 
     /* Destroy the producer instance */
     rd_kafka_destroy(this->rk);
+
+
+    if( this->undelivered_log_open ){
+        undelivered_log_fd_static = -1;
+        close( this->undelivered_log_fd );
+    }
+    
 
 }
 
@@ -323,5 +375,36 @@ retry:
 void KafkaProducer::poll( int timeout_ms ){
 
     rd_kafka_poll( this->rk, timeout_ms );
+
+}
+
+
+
+void KafkaProducer::openUndeliveredLog(){
+
+    //O_APPEND is not used for undelivered_log because of NFS usage
+    /*
+    O_APPEND may lead to corrupted files on NFS filesystems if
+    more than one process appends data to a file at once.  This is
+    because NFS does not support appending to a file, so the
+    client kernel has to simulate it, which can't be done without
+    a race condition.
+    */
+    
+    char error_string_buffer[128];
+
+    this->undelivered_log_fd = open( undelivered_log.c_str(), O_WRONLY | O_CREAT | O_LARGEFILE | O_NOFOLLOW, S_IRUSR | S_IWUSR ); //mode 0400
+    if( this->undelivered_log_fd == -1 ){
+
+        rd_kafka_topic_destroy(this->rkt);
+        rd_kafka_destroy(this->rk);
+
+        snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+        throw std::runtime_error( "Failed to open undelivered log file for writing: errno " + string(error_string_buffer) );
+    }
+
+    undelivered_log_fd_static = this->undelivered_log_fd;
+
+    this->undelivered_log_open = true;
 
 }

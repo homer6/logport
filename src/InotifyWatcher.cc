@@ -59,8 +59,8 @@ static void displayInotifyEvent( struct inotify_event *i ){
 
 
 
-InotifyWatcher::InotifyWatcher( const string &watched_file, KafkaProducer &kafka_producer )
-    :run(1), watched_file(watched_file), kafka_producer(kafka_producer)
+InotifyWatcher::InotifyWatcher( const string &watched_file, const string &undelivered_log, KafkaProducer &kafka_producer )
+    :run(1), watched_file(watched_file), undelivered_log(undelivered_log), kafka_producer(kafka_producer)
 {
 
     /* Create inotify instance; add watch descriptors */
@@ -73,7 +73,7 @@ InotifyWatcher::InotifyWatcher( const string &watched_file, KafkaProducer &kafka
         snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
         throw std::runtime_error( "Failed to create inotify instance: errno " + string(error_string_buffer) );
     }
-        
+
 
     if( (this->inotify_watch_descriptor = inotify_add_watch(inotify_fd, watched_file.c_str(), IN_ALL_EVENTS)) == -1 ){
         //fprintf(stderr, "%% Failed to add inotify watch descriptor: errno %d\n", errno );
@@ -120,8 +120,54 @@ void InotifyWatcher::watch(){
     //bool log_being_modified = false;
     bool startup = true;
     bool try_read = false;
+    bool replaying_undelivered_log = false;
 
     string previous_log_partial;
+
+
+
+
+
+    //replay the undelivered log entries
+
+        const string temp_log_file = undelivered_log + "_temp";
+
+        if( access( undelivered_log.c_str(), F_OK ) != -1 ) {
+            //if undelivered_log file exists
+
+            if( access( temp_log_file.c_str(), F_OK ) != -1 ) {
+                //temp log file exists; abort with error
+                throw std::runtime_error( "Error: temp undelivered_log exists. Aborting to prevent overwriting." );
+            }
+
+            //move the file (now that we know temp_log_file doesn't exist)
+            int rename_result = rename( undelivered_log.c_str(), temp_log_file.c_str() );
+            if( rename_result == -1 ){
+                snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                throw std::runtime_error( "Failed to rename undelivered_log: errno " + string(error_string_buffer) );
+            }
+
+            this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
+
+            this->kafka_producer.produce( "starting up - replaying undelivered log" );
+
+            //ingest the undelivered_log contents
+            replaying_undelivered_log = true;
+
+            this->undelivered_log_fd = open( temp_log_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );
+            if( this->undelivered_log_fd == -1 ){
+                snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                throw std::runtime_error( "Failed to open undelivered log temp file: errno " + string(error_string_buffer) );
+            }
+
+
+        }else{
+
+            this->kafka_producer.produce( "starting up" );
+
+        }
+
+
 
 
     //listen to events
@@ -187,7 +233,14 @@ void InotifyWatcher::watch(){
 
             //read some input from the log file
 
-                int bytes_read = read( watched_file_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
+                int current_fd;
+                if( replaying_undelivered_log ){
+                    current_fd = this->undelivered_log_fd;
+                }else{
+                    current_fd = watched_file_fd;
+                }
+
+                int bytes_read = read( current_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
 
                 if( bytes_read > 0 ){
 
@@ -248,14 +301,41 @@ void InotifyWatcher::watch(){
 
                 }else{
 
-                    if( startup ){
+                    //no bytes read (EOF)
+
+                    if( startup && !replaying_undelivered_log ){
                         //startup will continue until read = zero bytes
                         startup = false;
+                    }
+
+                    if( replaying_undelivered_log ){
+                        //remove the temp file
+
+                        int unlink_result = unlink( temp_log_file.c_str() );
+                        if( unlink_result == -1 ){
+                            snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                            throw std::runtime_error( "Failed to remove temporary undelivered log. errno: " + string(error_string_buffer) );
+                        }
+
+                        replaying_undelivered_log = false;
+
+                        //if there's any previous_log_partial left over, flush it before continuing
+                        if( previous_log_partial.size() ){
+                            this->kafka_producer.produce( previous_log_partial );
+                            previous_log_partial.clear();
+                        }
                     }
 
                     if( log_being_rotated ){
                         this->run = false;  //to exit on logrotate (after all bytes are drained)
                         //ensure that logrotate has the `delaycompress` option so that trailing bytes are properly drained
+
+                        //if there's any previous_log_partial left over, flush it before shutting down
+                        if( previous_log_partial.size() ){
+                            this->kafka_producer.produce( previous_log_partial );
+                            previous_log_partial.clear();
+                        }
+
                     }
 
                 }
