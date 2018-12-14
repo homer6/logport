@@ -2,37 +2,34 @@
 File watching to kafka
 
 
+## Dependencies
+- rdkafka ( https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
 
-cmake -Wno-dev .
+## Running
+```
+wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
+chmod ugo+x logport
+ldd logport
+```
+
+## Building
+```
+cmake .
 make
-
-
-
-wget https://raw.githubusercontent.com/homer6/logport/master/install.sh -O - | sh
-
-
-
-
-
-
-
-
-//TODO:
-
-refactor the copy out of the kafka_produce method, if possible
+```
 
 
 See kafka/README.md if you'd like to install a local copy of kafka (ubuntu only)
 
 
 
-# Logging
+# Logging Example
 ```
 while true; do echo "sample log entry at `date`" >> sample.log; sleep 1; done
 ```
 
 
-# Running
+# Running Example
 
 ```
 #./build/logport <bootstrap-brokers-list> <topic> <file-to-watch>
@@ -41,7 +38,7 @@ valgrind --leak-check=yes ./build/logport 127.0.0.1 hello sample.log
 ```
 
 
-# Watching
+# Watching Example
 
 ```
 kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
@@ -49,9 +46,9 @@ kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 
 
 
-# Logrotate
+# Logrotate Example
 
-## Configuration
+## Logrotate Configuration Example
 
 ```
 root@node-1w7jr9qh6y35wr9tbc3ipkal4:/etc/logrotate.d# cat sample
@@ -67,8 +64,15 @@ root@node-1w7jr9qh6y35wr9tbc3ipkal4:/etc/logrotate.d# cat sample
 
 ```
 
-## Testing
+## Logrotate Testing Example
 
 ```
 logrotate -v -f /etc/logrotate.d/sample
 ```
+
+
+# TODOs
+
+ - refactor the copy out of the kafka_produce method, if possible
+ - consider reducing the polling frequency
+ - consider making batching configurable

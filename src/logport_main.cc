@@ -1,5 +1,3 @@
-
-#include <stdio.h>
 #include <signal.h>
 #include <string.h>
 
@@ -35,7 +33,8 @@ static void stop( int /*sig*/ ){
 int main (int argc, char **argv) {
 
         if( argc != 4 ){
-            fprintf(stderr, "%% Usage: %s <bootstrap-brokers-list> <topic> <file-to-watch>\n", argv[0]);
+            cerr << "Usage: " << argv[0] << " <bootstrap-brokers-list> <topic> <file-to-watch>" << endl;
+            cerr << "See: https://github.com/homer6/logport" << endl;
             return 1;
         }
 
