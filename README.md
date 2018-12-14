@@ -1,5 +1,10 @@
 # logport
-File watching to kafka
+
+Logport watches a log file for changes and sends batches of lines to kafka.
+
+No partial line is sent to kafka. But, multiple lines (newline separated) will be sent in a single kafka message.
+
+Logport will exit after a successful logrotate event. Logport should be used with a start-stop daemon to restart it.
 
 
 ## Dependencies
@@ -10,6 +15,8 @@ File watching to kafka
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 ldd logport
+#./build/logport <bootstrap-brokers-list> <topic> <file-to-watch>
+./build/logport 127.0.0.1 hello sample.log
 ```
 
 ## Building
