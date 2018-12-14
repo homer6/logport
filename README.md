@@ -28,7 +28,7 @@ See kafka/README.md if you'd like to install a local copy of kafka (ubuntu only)
 
 # Logging
 ```
-echo "sample log entry at `date`" >> sample.log
+while true; do echo "sample log entry at `date`" >> sample.log; sleep 1; done
 ```
 
 
@@ -37,7 +37,7 @@ echo "sample log entry at `date`" >> sample.log
 ```
 #./build/logport <bootstrap-brokers-list> <topic> <file-to-watch>
 ./build/logport 127.0.0.1 hello sample.log
-
+valgrind --leak-check=yes ./build/logport 127.0.0.1 hello sample.log
 ```
 
 
