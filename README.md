@@ -47,3 +47,28 @@ echo "sample log entry at `date`" >> sample.log
 kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 ```
 
+
+
+# Logrotate
+
+## Configuration
+
+```
+root@node-1w7jr9qh6y35wr9tbc3ipkal4:/etc/logrotate.d# cat sample
+/home/user/logport/sample.log
+{
+        rotate 4
+        daily
+        delaycompress
+        missingok
+        notifempty
+        compress
+}
+
+```
+
+## Testing
+
+```
+logrotate -v -f /etc/logrotate.d/sample
+```

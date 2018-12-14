@@ -116,7 +116,7 @@ void InotifyWatcher::watch(){
 
     LevelTriggeredEpollWatcher epoll_watcher( this->inotify_fd );
 
-    //bool log_being_rotated = false;
+    bool log_being_rotated = false;
     //bool log_being_modified = false;
     bool startup = true;
     bool try_read = false;
@@ -153,7 +153,7 @@ void InotifyWatcher::watch(){
 
                     if( in_event->mask & IN_MOVE_SELF ){
                         //this is being logrotated
-                        //log_being_rotated = true;
+                        log_being_rotated = true;
                         try_read = true;
                     }
 
@@ -183,7 +183,7 @@ void InotifyWatcher::watch(){
 
             
 
-        if( startup || try_read ){
+        if( startup || try_read || log_being_rotated ){
 
             //read some input from the log file
 
@@ -201,6 +201,7 @@ void InotifyWatcher::watch(){
 
                     //strip incomplete (from the last newline character), if applicable (placing the partial in `previous_log_partial`)
                     //this will send multiple lines in a single message (batching)
+                    //no partial line will ever be sent
                         string::iterator previous_it, current_it = message.end();
                         char current_char;
                         int next_length = -1;
@@ -250,6 +251,10 @@ void InotifyWatcher::watch(){
                     if( startup ){
                         //startup will continue until read = zero bytes
                         startup = false;
+                    }
+
+                    if( log_being_rotated ){
+                        this->run = false;
                     }
 
                 }
