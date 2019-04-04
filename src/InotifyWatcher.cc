@@ -65,7 +65,7 @@ InotifyWatcher::InotifyWatcher( const string &watched_file, const string &undeli
 
     /* Create inotify instance; add watch descriptors */
 
-    char error_string_buffer[128];
+    char error_string_buffer[1024];
 
     this->inotify_fd = inotify_init();   /* Create inotify instance */
     if( this->inotify_fd == -1 ){
@@ -102,7 +102,7 @@ void InotifyWatcher::watch(){
     char *p;
     struct inotify_event *in_event;
 
-    char error_string_buffer[128];
+    char error_string_buffer[1024];
 
 
     int watched_file_fd = open( watched_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );

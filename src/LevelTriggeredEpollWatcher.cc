@@ -21,7 +21,7 @@ LevelTriggeredEpollWatcher::LevelTriggeredEpollWatcher( int watching_file_descri
     :watching_file_descriptor(watching_file_descriptor)
 {
 
-    char error_string_buffer[128];
+    char error_string_buffer[1024];
 
     struct epoll_event ev;
 
@@ -61,7 +61,7 @@ bool LevelTriggeredEpollWatcher::watch( int timeout_ms ){
     struct epoll_event events[MAX_EVENTS];
     int number_of_fds;
 
-    char error_string_buffer[128];
+    char error_string_buffer[1024];
 
     number_of_fds = epoll_wait( this->epollfd, events, MAX_EVENTS, timeout_ms );
     if( number_of_fds == -1 && errno != EINTR ){

@@ -405,7 +405,7 @@ void KafkaProducer::openUndeliveredLog(){
     a race condition.
     */
     
-    char error_string_buffer[128];
+    char error_string_buffer[1024];
 
     this->undelivered_log_fd = open( undelivered_log.c_str(), O_WRONLY | O_CREAT | O_LARGEFILE | O_NOFOLLOW, S_IRUSR | S_IWUSR ); //mode 0400
     if( this->undelivered_log_fd == -1 ){
