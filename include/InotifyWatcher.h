@@ -9,28 +9,31 @@ using std::vector;
 
 #include "KafkaProducer.h"
 
-class InotifyWatcher{
+namespace logport{
 
-    public:
-        InotifyWatcher( const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
-        ~InotifyWatcher();
+    class InotifyWatcher{
 
-        void watch(); //throws on failure
+        public:
+            InotifyWatcher( const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
+            ~InotifyWatcher();
 
-        int run;
+            void watch(); //throws on failure
 
-    protected:
-        string watched_file;
+            int run;
 
-        string undelivered_log;
-        int undelivered_log_fd;
+        protected:
+            string watched_file;
 
-        KafkaProducer &kafka_producer;
+            string undelivered_log;
+            int undelivered_log_fd;
 
-        int inotify_fd;
-        int inotify_watch_descriptor;
+            KafkaProducer &kafka_producer;
 
-};
+            int inotify_fd;
+            int inotify_watch_descriptor;
 
+    };
+
+}
 
 #endif //LOGPORT_INOTIFY_WATCHER_H

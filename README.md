@@ -2,12 +2,9 @@
 
 Logport watches a log file for changes and sends batches of lines to kafka.
 
-No partial line is sent to kafka. But, multiple lines (newline separated) will be sent in a single kafka message.
-
-Logport will exit after a successful logrotate event. Logport should be used with a start-stop daemon to restart it.
-
 
 ## Dependencies
+- ubuntu 18 ( please open an issue if you'd like support for your platform )
 - rdkafka ( https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
 
 ## Running
@@ -15,9 +12,43 @@ Logport will exit after a successful logrotate event. Logport should be used wit
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 ldd logport
-#./build/logport <bootstrap-brokers-list> <topic> <file-to-watch> <undelivered-log>
-./build/logport 127.0.0.1 hello sample.log sample_undelivered.log
+./logport watch /var/log/syslog my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
 ```
+
+
+# logport --help
+```
+usage: logport [--version] [--help] <command> [<args>]
+
+These are common logport commands used in various situations:
+
+add system service
+   install    Installs logport as a system service (and enables it)
+   uninstall  Removes logport service and configuration
+   enable     Enables the service to start on bootup
+   disable    Disables the service from starting on bootup
+
+systemd commands
+   start      Starts the service
+   stop       Stops the service
+   restart    Restarts the service gracefully
+   status     Prints the running status of logport
+   reload     Explicitly reloads the configuration file
+
+manage watches
+   watch      Add a watch (will also implicitly install logport)
+   unwatch    Remove a watch
+   watches    List all watches
+
+manage settings
+   set        Set a setting's value
+   unset      Clear a setting's value
+
+Please see: https://github.com/homer6/logport to report issues
+or view documentation.
+```
+
+
 
 ## Building
 ```

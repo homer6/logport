@@ -8,17 +8,44 @@ using std::string;
 using std::vector;
 
 
-class LogPort{
 
-    public:
-        LogPort( const string &kafka_connection_string, const vector<string> &watched_files );
-        void startWatching();
 
-    protected:
-        string kafka_connection_string;
-        vector<string> watched_files;
+namespace logport{
 
-};
+	class Watch;
+
+	class LogPort{
+
+	    public:
+	    	LogPort();
+
+	        void ensureInstalled();
+	        void install();
+	        void uninstall();
+
+	        void start();
+	        void stop();
+	        void restart();
+	        void reload();
+	        void status();
+
+	        void printHelp();
+	        void printVersion();
+
+	        int runFromCommandLine( int argc, char **argv );
+	        void registerSignalHandlers();
+
+	        void addWatch( const Watch& watch );
+
+	     public:
+	     	bool run;
+
+
+	};
+
+}
+
+
 
 
 #endif //LOGPORT_LOGPORT_H
