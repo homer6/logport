@@ -9,14 +9,28 @@ Logport watches a log file for changes and sends batches of lines to kafka.
 
 ## Running
 ```
+# download the installer/service/agent (all three in 1 binary)
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
+
+# ensure logport is properly linking against librdkafka
 ldd logport
-./logport watch /var/log/syslog my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
+
+# install and enable the service; add the first watch to the local logport service
+# subsequent `logport watch` commands do not require the broker or topic. The first
+# topic and broker are set to the default.
+# eg.
+#    second run:   logport watch /var/log/kern.log
+#    third run:    logport watch /var/log/my_app_log.txt my_app_log
+# Both the second and third run above will be configured with the first broker.
+# The third run will also use `my_app_log` as the topic.
+# `sudo ./logport` is also unnessary, too, because the service is already installed (no root required)
+# and the logport binary is now in the PATH.
+sudo ./logport watch /var/log/syslog my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
 ```
 
 
-# logport --help
+## logport --help
 ```
 usage: logport [--version] [--help] <command> [<args>]
 
