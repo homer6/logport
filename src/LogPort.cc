@@ -20,7 +20,7 @@ static void signal_handler_stop( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:run(true)
+		:run(true), current_version("0.1.0")
 	{
 
 
@@ -84,14 +84,46 @@ namespace logport{
 
 
 
-    void LogPort::printVersion(){}
+    void LogPort::printVersion(){
+
+    	cout << "logport version " << this->current_version << endl;
+
+    }
 
 
 
 
     int LogPort::runFromCommandLine( int argc, char **argv ){
 
-    	this->printHelp();
+    	int x = 0;
+
+    	if( argc <= 1 ){
+    		this->printHelp();
+    		return 0;
+    	}
+
+    	while( x < argc ){
+			this->command_line_arguments.push_back( string(argv[x]) );
+			x++;
+    	}
+
+    	if( argc > 1 ){
+    		this->command = this->command_line_arguments[1];
+    	}
+
+    	if( this->command == "-h" || this->command == "--help" || this->command == "help" ){
+    		this->printHelp();
+    		return 0;
+    	}
+
+    	if( this->command == "-v" || this->command == "--version" || this->command == "version" ){
+    		this->printVersion();
+    		return 0;
+    	}
+
+    	for( x = 0; x < argc; x++ ){
+			cout << this->command_line_arguments[x] << endl;   		
+    	}
 
     	return 0;
 
