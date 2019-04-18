@@ -3,10 +3,17 @@
 
 #include <iostream>
 using std::cout;
+using std::cerr;
 using std::endl;
 
 #include <unistd.h>
 #include <signal.h>
+
+#include "InotifyWatcher.h"
+#include "KafkaProducer.h"
+
+
+
 
 
 static logport::LogPort* logport_app_ptr;
@@ -14,6 +21,7 @@ static logport::LogPort* logport_app_ptr;
 static void signal_handler_stop( int /*sig*/ ){
     logport_app_ptr->run = false;
     cout << "stopping logport" << endl;
+    //exit(0);
 }
 
 
@@ -31,7 +39,7 @@ namespace logport{
 		logport_app_ptr = this;
 
         // Signal handler for clean shutdown 
-        signal( SIGINT, signal_handler_stop );
+        //signal( SIGINT, signal_handler_stop );
 
 	}
 
@@ -125,14 +133,57 @@ namespace logport{
 			cout << this->command_line_arguments[x] << endl;   		
     	}
 
+    	if( this->command == "watch" ){
+
+    		Watch watch;
+    		watch.brokers = this->getDefaultBrokers();
+    		watch.topic = this->getDefaultTopic();
+
+    		if( argc > 2 ){
+    			watch.watched_filepath = this->command_line_arguments[2];
+    		}else{
+    			cerr << "Watch requires a file to watch." << endl;
+    			return -1;
+    		}
+
+    		if( argc > 3 ){
+    			watch.topic = this->command_line_arguments[3];
+    		}
+
+    		if( argc > 4 ){
+    			watch.brokers = this->command_line_arguments[4];
+    		}
+
+    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
+
+    		this->addWatch( watch );
+
+    	}
+
     	return 0;
 
     }
 
 
+	string LogPort::getDefaultTopic(){
+		return "default_topic";
+	}
+
+	string LogPort::getDefaultBrokers(){
+		return "localhost:9092";
+	}
 
 
-	void LogPort::addWatch( const Watch& watch ){}
+	void LogPort::addWatch( const Watch& watch ){
+
+		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
+
+		InotifyWatcher watcher( watch.watched_filepath, watch.undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
+		//inotify_watcher_ptr = &watcher;
+
+		watcher.watch(); //main loop; blocks
+
+	}
 
 
 }

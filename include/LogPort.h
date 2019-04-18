@@ -37,6 +37,11 @@ namespace logport{
 
 	        void addWatch( const Watch& watch );
 
+
+	        string getDefaultTopic();
+	        string getDefaultBrokers();
+
+
 	     public:
 	     	bool run;
 	     	string command;

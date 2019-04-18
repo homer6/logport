@@ -8,12 +8,6 @@ using std::endl;
 using std::cerr;
 
 
-#include "InotifyWatcher.h"
-#include "KafkaProducer.h"
-
-
-
-
 
 //static InotifyWatcher* inotify_watcher_ptr;
 

@@ -84,15 +84,6 @@ while true; do echo "sample log entry at `date`" >> sample.log; sleep 1; done
 ```
 
 
-# Running Example
-
-```
-#./build/logport <bootstrap-brokers-list> <topic> <file-to-watch> <undelivered-log>
-./build/logport 127.0.0.1 hello sample.log
-valgrind --leak-check=yes ./build/logport 127.0.0.1 hello sample.log sample_undelivered.log
-```
-
-
 # Watching Example
 
 ```

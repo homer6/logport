@@ -249,60 +249,67 @@ namespace logport{
 
                     if( bytes_read > 0 ){
 
-                        string message( log_read_buffer, bytes_read );
+                        string log_chunk( log_read_buffer, bytes_read );
 
                         //append previous, if applicable
                             if( previous_log_partial.size() ){
-                                message = previous_log_partial + message;
+                                log_chunk = previous_log_partial + log_chunk;
                                 previous_log_partial.clear();
                             }
 
-                        //strip incomplete (from the last newline character), if applicable (placing the partial in `previous_log_partial`)
-                        //this will send multiple lines in a single message (batching)
+                        //send multiple lines (newline character delimited), if applicable (placing the trailing partial in `previous_log_partial`)
+                        //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
                         //no partial line will ever be sent
-                            string::iterator previous_it, current_it = message.end();
+                            string::iterator current_message_begin_it = log_chunk.begin();
+                            string::iterator current_message_end_it = log_chunk.begin();
+
                             char current_char;
-                            int next_length = -1;
 
-                            while( current_it != message.begin() ){
-
-                                previous_it = current_it;
-                                current_it--;
-
-                                next_length++;
-                                current_char = *current_it;
+                            while( current_message_end_it != log_chunk.end() ){
+                                                                    
+                                current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
 
                                 if( current_char == '\n' ){
 
                                     string sent_message;
-                                    sent_message.reserve( message.size() );
-                                    std::copy( message.begin(), current_it, std::back_inserter(sent_message) ); //drops the new line
+                                    sent_message.reserve( log_chunk.size() );
 
-                                    if( next_length > 0 ){
-                                        previous_log_partial.reserve( message.size() );
-                                        std::copy( previous_it, message.end(), std::back_inserter(previous_log_partial) );
+                                    //only copy if there's something to copy
+                                    if( current_message_end_it != current_message_begin_it ){
+                                        std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
                                     }
 
                                     if( sent_message.size() > 0 ){
                                         //handle consecutive newline characters (by dropping them)
                                         this->kafka_producer.produce( sent_message );
                                         this->kafka_producer.poll();
+
+                                        //skips the new line
+                                        current_message_end_it++;
+
+                                        //re-sync the being and end iterators
+                                        current_message_begin_it = current_message_end_it;
                                     }
 
-                                    //std::cout << "message(" << message.size() << "): " << message << std::endl;
-                                    //std::cout << "sent_message(" << sent_message.size() << "): " << sent_message << std::endl;
-                                    //std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
+                                    std::cout << "log_chunk(" << log_chunk.size() << "): " << std::endl;
+                                    std::cout << "sent_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                    std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
 
-                                    break;
+                                }else{
+
+                                    current_message_end_it++;
 
                                 }
 
                             }
 
-                            if( current_it == message.begin() ){
-                                //no newline found
-                                previous_log_partial += message;
+                            //if we're at the end and we have an incomplete message, copy remaining incomplete line
+                            if( current_message_begin_it != current_message_end_it ){
+                                previous_log_partial.reserve( log_chunk.size() );
+                                std::copy( current_message_begin_it, log_chunk.end(), std::back_inserter(previous_log_partial) );
                             }
+
+
 
                     }else{
 

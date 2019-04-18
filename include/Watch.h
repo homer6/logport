@@ -13,8 +13,8 @@ namespace logport{
 	class Watch{
 
 	    public:
+	    	Watch();
 	    	Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic );
-
 
 	        string watched_filepath;  			//eg. "/var/log/syslog"
 	        string undelivered_log_filepath;  	//eg. "/var/log/syslog_undelivered.log"
