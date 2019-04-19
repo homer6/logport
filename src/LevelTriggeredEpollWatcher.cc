@@ -28,7 +28,7 @@ namespace logport{
 
         int epoll_result;
 
-        this->epollfd = epoll_create1(0);
+        this->epollfd = epoll_create(1);
         if( this->epollfd == -1 ){
             snprintf( error_string_buffer, sizeof(error_string_buffer), "%d", this->epollfd );
             throw std::runtime_error( "Failed to create epoll fd: " + string(error_string_buffer) );

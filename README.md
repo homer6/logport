@@ -6,6 +6,9 @@ Logport watches a log file for changes and sends batches of lines to kafka.
 ## Dependencies
 - ubuntu 18 ( please open an issue if you'd like support for your platform )
 - rdkafka ( https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- 64 bit
+- libc 2.5+
+- linux kernel 2.6.9+
 
 ## Running
 ```
