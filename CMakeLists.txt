@@ -26,16 +26,18 @@ set( LOGPORT_LIBS
 set( LOGPORT_COMPILE_OPTIONS
     -Wall
     -Wextra
-    -O3
+    -O3   
     -std=c++98
     #-std=gnu++11
     #-std=c++1y
     #-std=c++17
 )
 
+message( "${LOGPORT_COMPILE_OPTIONS}" )
+
 add_executable( build/logport ${LOGPORT_SOURCES} src/logport_main.cc )
 
-target_link_libraries( build/logport ${LOGPORT_LIBS} )
+target_link_libraries( build/logport -Wl,-rpath=.:/usr/local/lib/logport ${LOGPORT_LIBS} )
 
 set_target_properties( build/logport
     PROPERTIES
