@@ -240,12 +240,19 @@ namespace logport{
 
 	void LogPort::addWatch( const Watch& watch ){
 
+		Database db;
+
+		
+
+
+		/*
 		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
 
 		InotifyWatcher watcher( watch.watched_filepath, watch.undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
 		//inotify_watcher_ptr = &watcher;
 
 		watcher.watch(); //main loop; blocks
+		*/
 
 	}
 

@@ -11,6 +11,9 @@ class sqlite3;
 
 namespace logport{
 
+	class Watch;
+	class PreparedStatement;
+
 	class Database{
 
 	    public:
@@ -21,11 +24,18 @@ namespace logport{
 
 	    	void execute( const string& command );
 
+	    	void addWatch( const Watch& watch );
 
 	    private:
 	    	sqlite3 *db;
 
+	    friend class PreparedStatement;
+
 	};
+
+
+
+
 
 }
 

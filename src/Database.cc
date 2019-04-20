@@ -6,7 +6,8 @@
 #include <string>
 using std::string;
 
-
+#include "Watch.h"
+#include "PreparedStatement.h"
 
 
 namespace logport{
@@ -46,12 +47,12 @@ namespace logport{
     void Database::createDatabase(){
 
         this->execute( "CREATE TABLE watches ( "
-            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "filepath TEXT NOT NULL, "
-            "file_offset INTEGER DEFAULT 0, "
-            "brokers TEXT, "
-            "topic TEXT "
-            ") WITHOUT ROWID"
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "filepath TEXT NOT NULL, "
+                "file_offset INTEGER DEFAULT 0, "
+                "brokers TEXT, "
+                "topic TEXT "
+            ")"
         );
 
     }
@@ -72,6 +73,16 @@ namespace logport{
         }
 
     }
+
+
+
+    void Database::addWatch( const Watch& watch ){
+
+
+
+
+    }
+
 
 
 

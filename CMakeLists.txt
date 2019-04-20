@@ -10,6 +10,7 @@ include_directories(
 
 set( LOGPORT_SOURCES
     src/Database.cc
+    src/PreparedStatement.cc
     src/LogPort.cc
     src/Watch.cc
     src/KafkaProducer.cc
