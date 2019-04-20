@@ -41,8 +41,13 @@ namespace logport{
 	        string getDefaultTopic();
 	        string getDefaultBrokers();
 
+	        string executeCommand( const string& command );
 
-	     public:
+	    protected:
+	    	void installInitScript();
+
+
+	    public:
 	     	bool run;
 	     	string command;
 	     	vector<string> command_line_arguments;

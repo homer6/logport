@@ -1,38 +1,34 @@
 # logport
 
-Logport watches a log file for changes and sends batches of lines to kafka.
+Logport watches a log file for changes and lines to kafka (one line per message).
 
-
-## Dependencies
-- ubuntu 18 ( please open an issue if you'd like support for your platform )
-- rdkafka ( https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
-- 64 bit
+## Requirements
+- ubuntu 18 or OEL 5.11 ( please open an issue if you'd like support for your platform )
+- 64 bit linux
 - libc 2.5+
 - linux kernel 2.6.9+
 
-## Running
+## Dependencies
+- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+
+## Installing, running as a service, and adding files to watch
 ```
 # download the installer/service/agent (all three in 1 binary)
+wget -O logport https://github.com/homer6/logport/blob/master/build/librdkafka.so.1?raw=true
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 
-# ensure logport is properly linking against librdkafka
-ldd logport
+# Install, start, and enable the service. This also sets the default topic and brokers list.
+sudo ./logport install my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
 
-# Install and enable the service. And, add the first watch to the local logport service.
-# Subsequent `logport watch` commands do not require the broker or topic. The first
-# topic and broker are set to the default.
-#
-# eg.
-#    second run:   logport watch /var/log/kern.log
-#    third run:    logport watch /var/log/my_app_log.txt my_app_log
-#
-# Both the second and third run above will be configured with the first broker.
-# The third run will also use `my_app_log` as the topic.
-# `sudo ./logport` is also unnessary, too, because the service is already installed 
-# (no root required) and the logport binary is now in the PATH.
-#
-sudo ./logport watch /var/log/syslog my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
+# Delete the downloaded files (optional)
+rm librdkafka.so.1
+rm logport
+
+# Add some files to be watched (this uses the default topic and brokers list above, 
+# but you can specify non-defaults with the --topic and --brokers flags).
+# You can specify many files (or patterns to add many files).
+logport watch /var/log/*.log /var/log/syslog
 ```
 
 

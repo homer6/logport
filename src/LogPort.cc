@@ -12,7 +12,11 @@ using std::endl;
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
 
-
+#include <cstdio>
+#include <stdexcept>
+#include <memory>
+#include <stdio.h>
+#include <fstream>
 
 
 
@@ -44,8 +48,35 @@ namespace logport{
 	}
 
 
-	void LogPort::install(){}
-	void LogPort::uninstall(){}
+	void LogPort::install(){
+
+		this->executeCommand( "mkdir -p /usr/local/lib/logport" );
+		this->executeCommand( "cp logport /usr/local/bin" );		
+		this->installInitScript();
+		this->executeCommand( "cp librdkafka.so.1 /usr/local/lib/logport" );
+		this->executeCommand( "systemctl start logport" );
+		this->executeCommand( "systemctl enable logport" );
+		
+		cout << "Logport installed as a system service, started, and enabled on bootup." << endl;
+		cout << "The logport binary is now in your path." << endl;
+		cout << "Run these commands to remove the downloaded files. This will not remove logport from your system." << endl;
+
+	}
+
+
+	void LogPort::uninstall(){
+
+		this->executeCommand( "systemctl stop logport" );
+		this->executeCommand( "systemctl disable logport" );
+		this->executeCommand( "rm /etc/init.d/logport" );
+
+		cout << "Run these commands to finalize the uninstall:" << endl;
+		cout << "rm /usr/local/lib/logport/librdkafka.so.1" << endl;
+		cout << "rmdir /usr/local/lib/logport" << endl;
+		cout << "rm /usr/local/bin/logport" << endl;
+
+	}
+
 
 	void LogPort::start(){}
 	void LogPort::stop(){}
@@ -158,7 +189,21 @@ namespace logport{
 
     		this->addWatch( watch );
 
+    		return 0;
+
     	}
+
+
+    	if( this->command == "install" ){
+    		this->install();
+    		return 0;
+    	}
+
+    	if( this->command == "uninstall" ){
+    		this->uninstall();
+    		return 0;
+    	}
+
 
     	return 0;
 
@@ -182,6 +227,123 @@ namespace logport{
 		//inotify_watcher_ptr = &watcher;
 
 		watcher.watch(); //main loop; blocks
+
+	}
+
+
+	string LogPort::executeCommand( const string& command ){
+
+		// http://stackoverflow.com/questions/478898/how-to-execute-a-command-and-get-output-of-command-within-c-using-posix
+		char buffer[4096];
+
+		string output;
+
+		FILE* pipe = popen( command.c_str(), "r" );
+		if( !pipe ){
+			throw std::runtime_error( "popen() failed" );
+		}
+
+		try {
+			while( fgets(buffer, 4096, pipe) != NULL ){
+				output += buffer;
+			}
+		}catch(...){
+			pclose( pipe );
+			throw;
+		}
+		pclose( pipe );
+
+		return output;
+
+	}
+
+
+
+	void LogPort::installInitScript(){
+
+		const char *init_d_file_contents = 
+"#!/bin/bash\n"
+"#\n"
+"#       /etc/init.d/logport\n"
+"#\n"
+"#       See: https://github.com/homer6/logport\n"
+"#\n"
+"# chkconfig: 345 99 01\n"
+"# description: logport sends log data to kafka\n"
+"# processname: logport\n"
+"### BEGIN INIT INFO\n"
+"# Provides:          logport\n"
+"# Required-Start:    $all\n"
+"# Required-Stop:\n"
+"# Default-Start:     2 3 4 5\n"
+"# Default-Stop:\n"
+"# Short-Description: logport sends log data to kafka\n"
+"### END INIT INFO\n"
+"\n"
+"RETVAL=0\n"
+"prog=\"logport\"\n"
+"\n"
+"LOGPORT_EXECUTABLE=/usr/local/bin/logport\n"
+"\n"
+"start() {\n"
+"        $LOGPORT_EXECUTABLE start\n"
+"        RETVAL=$?\n"
+"        return $RETVAL\n"
+"}\n"
+"\n"
+"stop() {\n"
+"        $LOGPORT_EXECUTABLE stop\n"
+"        RETVAL=$?\n"
+"        return $RETVAL\n"
+"}\n"
+"\n"
+"status() {\n"
+"        $LOGPORT_EXECUTABLE status\n"
+"        RETVAL=$?\n"
+"        return $RETVAL\n"
+"}\n"
+"\n"
+"restart() {\n"
+"        $LOGPORT_EXECUTABLE restart\n"
+"        RETVAL=$?\n"
+"        return $RETVAL\n"
+"}\n"
+"\n"
+"reload() {\n"
+"        $LOGPORT_EXECUTABLE reload\n"
+"        RETVAL=$?\n"
+"        return $RETVAL\n"
+"}\n"
+"\n"
+"case \"$1\" in\n"
+"    start)\n"
+"        start\n"
+"        ;;\n"
+"    stop)\n"
+"        stop\n"
+"        ;;\n"
+"    status)\n"
+"        status\n"
+"        ;;\n"
+"    restart)\n"
+"        restart\n"
+"        ;;\n"
+"    reload)\n"
+"        reload\n"
+"        ;;\n"
+"    *)\n"
+"        echo \"Usage: $prog {start|stop|status|restart|reload}\"\n"
+"        exit 1\n"
+"        ;;\n"
+"esac\n"
+"exit $RETVAL";
+
+		std::ofstream init_d_file;
+		init_d_file.open( "/etc/init.d/logport" );
+		init_d_file << init_d_file_contents;
+		init_d_file.close();
+
+		this->executeCommand( "chmod ugo+x /etc/init.d/logport" );
 
 	}
 
