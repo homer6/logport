@@ -9,15 +9,19 @@ include_directories(
 )
 
 set( LOGPORT_SOURCES
+    src/Database.cc
     src/LogPort.cc
     src/Watch.cc
     src/KafkaProducer.cc
     src/InotifyWatcher.cc
     src/LevelTriggeredEpollWatcher.cc
+    src/sqlite3.c
 )
 
 set( LOGPORT_LIBS
     rdkafka
+    pthread
+    dl
 )
 
 

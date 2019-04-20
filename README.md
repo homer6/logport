@@ -9,17 +9,17 @@ Logport watches a log file for changes and lines to kafka (one line per message)
 - linux kernel 2.6.9+
 
 ## Dependencies
-- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.o/en/latest/installation_librdkafka.html or see OEL511.compile)
 
 ## Installing, running as a service, and adding files to watch
 ```
 # download the installer/service/agent (all three in 1 binary)
-wget -O logport https://github.com/homer6/logport/blob/master/build/librdkafka.so.1?raw=true
+wget -O librdkafka.so.1 https://github.com/homer6/logport/blob/master/build/librdkafka.so.1?raw=true
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 
 # Install, start, and enable the service. This also sets the default topic and brokers list.
-sudo ./logport install my_syslog_topic kafka1:9092,kafka2:9092,kafka3:9092
+sudo ./logport install my_cluster_logs kafka1:9092,kafka2:9092,kafka3:9092
 
 # Delete the downloaded files (optional)
 rm librdkafka.so.1
