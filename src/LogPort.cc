@@ -11,6 +11,7 @@ using std::endl;
 
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
+#include "Database.h"
 
 #include <cstdio>
 #include <stdexcept>
@@ -18,6 +19,7 @@ using std::endl;
 #include <stdio.h>
 #include <fstream>
 
+#include <sys/stat.h>
 
 
 static logport::LogPort* logport_app_ptr;
@@ -51,7 +53,21 @@ namespace logport{
 	void LogPort::install(){
 
 		this->executeCommand( "mkdir -p /usr/local/lib/logport" );
-		this->executeCommand( "cp logport /usr/local/bin" );		
+		this->executeCommand( "cp logport /usr/local/bin" );
+
+		//create the db
+			this->executeCommand( "mkdir -p /usr/local/logport" );
+			this->executeCommand( "chmod 777 /usr/local/logport" );
+
+			bool database_exists = this->fileExists("/usr/local/logport/logport.db"); 
+			{
+				Database db; //creates the db
+				if( !database_exists ){
+					db.createDatabase();
+				}
+			}
+			this->executeCommand( "chmod ugo+w /usr/local/logport/logport.db" );
+		
 		this->installInitScript();
 		this->executeCommand( "cp librdkafka.so.1 /usr/local/lib/logport" );
 		this->executeCommand( "systemctl start logport" );
@@ -69,6 +85,9 @@ namespace logport{
 		this->executeCommand( "systemctl stop logport" );
 		this->executeCommand( "systemctl disable logport" );
 		this->executeCommand( "rm /etc/init.d/logport" );
+
+		this->executeCommand( "rm /usr/local/logport/logport.db" );
+		this->executeCommand( "rmdir /usr/local/logport" );
 
 		cout << "Run these commands to finalize the uninstall:" << endl;
 		cout << "rm /usr/local/lib/logport/librdkafka.so.1" << endl;
@@ -256,6 +275,14 @@ namespace logport{
 		return output;
 
 	}
+
+
+	bool LogPort::fileExists( const string& filename ){
+		//https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
+		struct stat buffer;
+		return ( stat(filename.c_str(), &buffer) == 0 ); 
+	}
+
 
 
 

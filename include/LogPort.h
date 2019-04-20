@@ -42,6 +42,7 @@ namespace logport{
 	        string getDefaultBrokers();
 
 	        string executeCommand( const string& command );
+	        bool fileExists( const string& filename );
 
 	    protected:
 	    	void installInitScript();

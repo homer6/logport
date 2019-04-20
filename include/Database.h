@@ -15,9 +15,12 @@ namespace logport{
 
 	    public:
 	    	Database();
+	    	~Database();
 
-	    	static bool databaseExists();
-	    	static void createDatabase();
+	    	void createDatabase();
+
+	    	void execute( const string& command );
+
 
 	    private:
 	    	sqlite3 *db;
