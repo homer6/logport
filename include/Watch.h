@@ -11,10 +11,13 @@ using std::vector;
 
 namespace logport{
 
+	class PreparedStatement;
+
 	class Watch{
 
 	    public:
 	    	Watch();
+	    	Watch( const PreparedStatement& statement );
 	    	Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, int64_t file_offset = 0 );
 
 	        string watched_filepath;  			//eg. "/var/log/syslog"
@@ -23,7 +26,10 @@ namespace logport{
 	        string brokers;  					//csv separated
 	        string topic;						//eg. "my_logs"
 
+	        int64_t id;	        
 	        int64_t file_offset;
+
+	        void bind( PreparedStatement& statement, bool skip_id = true ) const;
 
 
 	};

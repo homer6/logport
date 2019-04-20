@@ -1,6 +1,7 @@
 #include "PreparedStatement.h"
+#include "Database.h"
 
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <stdexcept>
 
 #include <string>
@@ -12,7 +13,7 @@ namespace logport{
     PreparedStatement::PreparedStatement( const Database& database, const string& statement_sql ){
 
         this->statement = NULL;
-        this->db = database->db;
+        this->db = database.db;
         this->last_step_result = SQLITE_ERROR;
         this->column_count = 0;
 
@@ -47,7 +48,7 @@ namespace logport{
 
 
 
-    void PreparedStatement::bindInt32( int offset, int32_t value ){
+    void PreparedStatement::bindInt32( int offset, const int32_t value ){
 
         //The leftmost SQL parameter has an index of 1
 
@@ -66,7 +67,7 @@ namespace logport{
     }
 
 
-    void PreparedStatement::bindInt64( int offset, int64_t value ){
+    void PreparedStatement::bindInt64( int offset, const int64_t value ){
 
         //The leftmost SQL parameter has an index of 1
 
@@ -178,7 +179,7 @@ namespace logport{
     }
 
 
-    int32_t PreparedStatement::getInt32( int offset ){
+    int32_t PreparedStatement::getInt32( int offset ) const{
 
         // https://sqlite.org/c3ref/column_blob.html
 
@@ -202,7 +203,7 @@ namespace logport{
 
 
     
-    int64_t PreparedStatement::getInt64( int offset ){
+    int64_t PreparedStatement::getInt64( int offset ) const{
 
         // https://sqlite.org/c3ref/column_blob.html
 
@@ -225,7 +226,7 @@ namespace logport{
     }
 
 
-    string PreparedStatement::getText( int offset ){
+    string PreparedStatement::getText( int offset ) const{
 
         // https://sqlite.org/c3ref/column_blob.html
 
@@ -243,7 +244,7 @@ namespace logport{
             throw std::runtime_error( "Sqlite getText error: expected text type column, but got type: " + this->describeColumnType(column_type) );
         }
 
-        unsigned char *result_text_ptr = sqlite3_column_text( this->statement, offset );
+        const unsigned char *result_text_ptr = sqlite3_column_text( this->statement, offset );
 
         if( result_text_ptr == NULL ){
             return string();
@@ -256,7 +257,7 @@ namespace logport{
             return string();
         }
 
-        string result_text( result_text_ptr, number_of_bytes );
+        string result_text( reinterpret_cast<const char *>(result_text_ptr), number_of_bytes );
 
         return result_text;
 
@@ -264,7 +265,7 @@ namespace logport{
 
 
 
-    void PreparedStatement::validateOffset( int offset ){
+    void PreparedStatement::validateOffset( int offset ) const{
 
         if( offset < 0 ){
             throw std::runtime_error( "Offset must be non-negative." );
@@ -277,14 +278,14 @@ namespace logport{
     }
 
 
-    int PreparedStatement::getNumberOfColumns(){
+    int PreparedStatement::getNumberOfColumns() const{
 
         return this->column_count;
 
     }
 
 
-    string PreparedStatement::describeColumnType( int column_type ){
+    string PreparedStatement::describeColumnType( int column_type ) const{
 
         switch( column_type ){
             case SQLITE_INTEGER:
@@ -302,6 +303,7 @@ namespace logport{
         };
 
     }
+
 
 
 }

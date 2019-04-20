@@ -24,8 +24,6 @@ namespace logport{
 
 	    	void execute( const string& command );
 
-	    	void addWatch( const Watch& watch );
-
 	    private:
 	    	sqlite3 *db;
 

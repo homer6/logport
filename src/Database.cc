@@ -1,6 +1,6 @@
 #include "Database.h"
 
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <stdexcept>
 
 #include <string>
@@ -71,15 +71,6 @@ namespace logport{
             throw std::runtime_error( "Sqlite: " + error_message_string );
             
         }
-
-    }
-
-
-
-    void Database::addWatch( const Watch& watch ){
-
-
-
 
     }
 

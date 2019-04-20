@@ -7,6 +7,7 @@ using std::string;
 #include <stdint.h>
 
 class sqlite3_stmt;
+class sqlite3;
 
 namespace logport{
 
@@ -20,8 +21,8 @@ namespace logport{
 
 	    	// The leftmost SQL parameter has an offset of 1
 	    	// Unbound parameters are interpreted as NULL.
-			void bindInt32( int offset, int32_t value );
-			void bindInt64( int offset, int64_t value );
+			void bindInt32( int offset, const int32_t value );
+			void bindInt64( int offset, const int64_t value );
 			void bindText( int offset, const string& text );
 
 			int step();
@@ -30,20 +31,19 @@ namespace logport{
 
 			// gets a string type from this result offset
 			// The first column has an offset of 0
-			int32_t getInt32( int offset );
-			int64_t getInt64( int offset );
-			string getText( int offset );
+			int32_t getInt32( int offset ) const;
+			int64_t getInt64( int offset ) const;
+			string getText( int offset ) const;
 
-			int getNumberOfColumns();
+			int getNumberOfColumns() const;
 
 
-			void validateOffset( int offset ); //throws if invalid offset
+			void validateOffset( int offset ) const; //throws if invalid offset
 
-			string describeColumnType( int column_type );
+			string describeColumnType( int column_type ) const;
+
 
 	    private:
-
-
 	    	sqlite3_stmt *statement;
 	    	sqlite3 *db;
 	    	int last_step_result;

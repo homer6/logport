@@ -12,6 +12,9 @@ using std::endl;
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
 #include "Database.h"
+#include "PreparedStatement.h"
+#include "sqlite3.h"
+
 
 #include <cstdio>
 #include <stdexcept>
@@ -179,9 +182,9 @@ namespace logport{
     		return 0;
     	}
 
-    	for( x = 0; x < argc; x++ ){
-			cout << this->command_line_arguments[x] << endl;   		
-    	}
+    	//for( x = 0; x < argc; x++ ){
+		//	cout << this->command_line_arguments[x] << endl;   		
+    	//}
 
     	if( this->command == "watch" ){
 
@@ -212,6 +215,10 @@ namespace logport{
 
     	}
 
+    	if( this->command == "watches" ){
+    		this->listWatches();
+    		return 0;
+    	}
 
     	if( this->command == "install" ){
     		this->install();
@@ -222,7 +229,6 @@ namespace logport{
     		this->uninstall();
     		return 0;
     	}
-
 
     	return 0;
 
@@ -238,11 +244,34 @@ namespace logport{
 	}
 
 
+	void LogPort::listWatches(){
+
+		Database db;
+
+		PreparedStatement statement( db, "select * from watches;" );
+
+		while( statement.step() == SQLITE_ROW ){
+
+			Watch watch(statement);
+			
+			cout << watch.id << " " << watch.watched_filepath << " " << watch.brokers << " " << watch.topic << " " << watch.file_offset << endl;
+
+		}
+
+	}
+
+
 	void LogPort::addWatch( const Watch& watch ){
 
 		Database db;
 
-		
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic ) VALUES ( ?, ?, ?, ? );" );
+
+		watch.bind( statement, true );
+
+		statement.step();
+		statement.reset();
+		statement.clearBindings();
 
 
 		/*

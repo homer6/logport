@@ -36,6 +36,7 @@ namespace logport{
 	        void registerSignalHandlers();
 
 	        void addWatch( const Watch& watch );
+	        void listWatches();
 
 
 	        string getDefaultTopic();
