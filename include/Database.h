@@ -22,6 +22,8 @@ namespace logport{
 
 	    	void createDatabase();
 
+	    	vector<Watch> getWatches();
+
 	    	void execute( const string& command );
 
 	    private:

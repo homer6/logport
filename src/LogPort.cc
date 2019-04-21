@@ -2,6 +2,7 @@
 #include "Watch.h"
 
 #include <iostream>
+#include <iomanip>
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -21,6 +22,7 @@ using std::endl;
 #include <memory>
 #include <stdio.h>
 #include <fstream>
+#include <sstream>
 
 #include <sys/stat.h>
 
@@ -316,17 +318,115 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "select * from watches;" );
+		vector<Watch> watches = db.getWatches();
 
-		while( statement.step() == SQLITE_ROW ){
+		if( watches.size() == 0 ){
+			cout << "No files are being watched." << endl;
+			return;
+		}
 
-			Watch watch(statement);
-			
-			cout << watch.id << " " << watch.watched_filepath << " " << watch.brokers << " " << watch.topic << " " << watch.file_offset << endl;
+		vector<string> column_labels;
+		column_labels.push_back( " watch_id" ); //add a space for left padding
+		column_labels.push_back( "watched_filepath" );
+		column_labels.push_back( "brokers" );
+		column_labels.push_back( "topic" );
+		column_labels.push_back( "file_offset_sent" );
+
+		int num_table_columns = column_labels.size();
+
+		//calculate the widths of the columns so they fit nicely
+
+			//the vector index is the column number (first column 0)
+			vector<size_t> column_widths_maximums( num_table_columns, 0 ); //all zeros as initial values
+
+			//account for the column data
+			for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+
+				Watch& watch = *it;
+
+				// id
+					std::ostringstream id_stringstream;
+					id_stringstream << watch.id;
+					string id_string = id_stringstream.str();
+
+					if( id_string.size() > column_widths_maximums[0] ){
+						column_widths_maximums[0] = id_string.size();
+					}
+
+				// watched_filepath
+					if( watch.watched_filepath.size() > column_widths_maximums[1] ){
+						column_widths_maximums[1] = watch.watched_filepath.size();
+					}
+					
+				// brokers
+					if( watch.brokers.size() > column_widths_maximums[2] ){
+						column_widths_maximums[2] = watch.brokers.size();
+					}
+
+				// topic
+					if( watch.topic.size() > column_widths_maximums[3] ){
+						column_widths_maximums[3] = watch.topic.size();
+					}
+
+				// file_offset
+					std::ostringstream file_offset_stringstream;
+					file_offset_stringstream << watch.file_offset;
+					string file_offset_string = file_offset_stringstream.str();
+
+					if( file_offset_string.size() > column_widths_maximums[4] ){
+						column_widths_maximums[4] = file_offset_string.size();
+					}
+
+			}
+
+
+			// account for the column header widths
+			for( int x = 0; x < num_table_columns; x++ ){
+				if( column_labels[x].size() > column_widths_maximums[x] ){
+					column_widths_maximums[x] = column_labels[x].size();
+				}
+			}
+
+
+
+		int character_column_count = 0;
+	
+
+		// print the column headers (labels)
+			for( int x = 0; x < num_table_columns; x++ ){
+
+				int column_width = column_widths_maximums[x];
+
+				if( x + 1 == num_table_columns ){
+					//last column
+					cout << std::left << std::setw(column_width) << column_labels[x] << endl; 
+				}else{
+					cout << std::left << std::setw(column_width) << column_labels[x] << " | "; 
+				}
+
+				character_column_count += column_width;
+
+			}
+
+		// print the underline for the column headers
+			cout << string( character_column_count + ( num_table_columns * 3 ) - 2, '-') << endl;
+
+
+		// print all of the records
+		for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+
+			Watch& watch = *it;
+
+			cout << std::right << std::setw(column_widths_maximums[0]) << watch.id << " | ";
+			cout << std::left << std::setw(column_widths_maximums[1]) << watch.watched_filepath << " | ";
+			cout << std::left << std::setw(column_widths_maximums[2]) << watch.brokers << " | ";
+			cout << std::left << std::setw(column_widths_maximums[3]) << watch.topic << " | ";
+			cout << std::right << std::setw(column_widths_maximums[4]) << watch.file_offset << endl;
 
 		}
 
 	}
+
 
 
 	void LogPort::addWatch( const Watch& watch ){

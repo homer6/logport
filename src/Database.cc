@@ -75,6 +75,24 @@ namespace logport{
     }
 
 
+    vector<Watch> Database::getWatches(){
+
+        PreparedStatement statement( *this, "select * from watches;" );
+
+        vector<Watch> watches;
+
+        while( statement.step() == SQLITE_ROW ){
+
+            Watch watch(statement);
+
+            watches.push_back( watch );
+            
+        }
+
+        return watches;
+
+    }
+
 
 
 }
