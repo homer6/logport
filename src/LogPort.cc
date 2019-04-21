@@ -37,11 +37,23 @@ static void signal_handler_stop( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:run(true), current_version("0.1.0")
+		:db(NULL), run(true), current_version("0.1.0")
 	{
 
 
 	}
+
+	LogPort::~LogPort(){
+
+		if( this->db != NULL ){
+			delete this->db;
+		}
+
+	}
+
+
+
+
 
 	void LogPort::registerSignalHandlers(){
 
@@ -63,12 +75,14 @@ namespace logport{
 			this->executeCommand( "chmod 777 /usr/local/logport" );
 
 			bool database_exists = this->fileExists("/usr/local/logport/logport.db"); 
+			
 			{
 				Database db; //creates the db
 				if( !database_exists ){
 					db.createDatabase();
 				}
-			}
+			}//explicitly closes the db so we can chmod it
+
 			this->executeCommand( "chmod ugo+w /usr/local/logport/logport.db" );
 		
 		this->installInitScript();
@@ -152,7 +166,17 @@ namespace logport{
     }
 
 
+	void LogPort::printHelpWatch(){
 
+		cerr << "Usage: logport watch [OPTION]... [FILE]...\n"
+				"Adds one or more files to be watched.\n"
+				"\n"
+				"Mandatory arguments to long options are mandatory for short options too.\n"
+				"  -b, --brokers [BROKERS]    a csv list of kafka brokers (optional: defaults to brokers default)\n"
+				"  -t, --topic [TOPIC]        a destination kafka topic (optional: defaults to topic default)"
+		<< endl;
+
+	}
 
     int LogPort::runFromCommandLine( int argc, char **argv ){
 
@@ -188,28 +212,69 @@ namespace logport{
 
     	if( this->command == "watch" ){
 
-    		Watch watch;
-    		watch.brokers = this->getDefaultBrokers();
-    		watch.topic = this->getDefaultTopic();
-
-    		if( argc > 2 ){
-    			watch.watched_filepath = this->command_line_arguments[2];
-    		}else{
-    			cerr << "Watch requires a file to watch." << endl;
+    		if( argc <= 2 ){
+    			this->printHelpWatch();
     			return -1;
     		}
 
-    		if( argc > 3 ){
-    			watch.topic = this->command_line_arguments[3];
+    		int current_argument_offset = 2;
+
+    		string this_brokers = this->getDefaultBrokers();
+    		string this_topic = this->getDefaultTopic();
+
+    		while( current_argument_offset < argc ){
+
+    			string current_argument = this->command_line_arguments[ current_argument_offset ];
+
+
+    			if( current_argument == "--topic" || current_argument == "--topics" || current_argument == "-t" ){
+
+    				current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				this_topic = this->command_line_arguments[ current_argument_offset ];
+
+					current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				continue;
+
+    			}
+
+
+    			if( current_argument == "--brokers" || current_argument == "--broker" || current_argument == "-b" ){
+
+    				current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				this_brokers = this->command_line_arguments[ current_argument_offset ];
+
+					current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				continue;
+
+    			}
+
+	    		Watch watch;
+	    		watch.brokers = this_brokers;
+	    		watch.topic = this_topic;
+	    		watch.watched_filepath = current_argument;
+	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
+
+	    		this->addWatch( watch );
+
+    			current_argument_offset++;
+
     		}
-
-    		if( argc > 4 ){
-    			watch.brokers = this->command_line_arguments[4];
-    		}
-
-    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
-
-    		this->addWatch( watch );
 
     		return 0;
 
@@ -230,7 +295,10 @@ namespace logport{
     		return 0;
     	}
 
-    	return 0;
+
+    	this->printHelp();
+
+    	return 1;
 
     }
 
@@ -246,7 +314,7 @@ namespace logport{
 
 	void LogPort::listWatches(){
 
-		Database db;
+		Database& db = this->getDatabase();
 
 		PreparedStatement statement( db, "select * from watches;" );
 
@@ -263,7 +331,7 @@ namespace logport{
 
 	void LogPort::addWatch( const Watch& watch ){
 
-		Database db;
+		Database& db = this->getDatabase();
 
 		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic ) VALUES ( ?, ?, ?, ? );" );
 
@@ -407,6 +475,18 @@ namespace logport{
 		init_d_file.close();
 
 		this->executeCommand( "chmod ugo+x /etc/init.d/logport" );
+
+	}
+
+
+
+	Database& LogPort::getDatabase(){
+
+		if( this->db == NULL ){
+			this->db = new Database();
+		}
+
+		return *this->db;
 
 	}
 

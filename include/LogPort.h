@@ -13,11 +13,13 @@ using std::vector;
 namespace logport{
 
 	class Watch;
+	class Database;
 
 	class LogPort{
 
 	    public:
 	    	LogPort();
+	    	~LogPort();
 
 	        void ensureInstalled();
 	        void install();
@@ -32,11 +34,17 @@ namespace logport{
 	        void printHelp();
 	        void printVersion();
 
+
+	        void printHelpWatch();
+
+
 	        int runFromCommandLine( int argc, char **argv );
 	        void registerSignalHandlers();
 
 	        void addWatch( const Watch& watch );
 	        void listWatches();
+
+	        Database& getDatabase();
 
 
 	        string getDefaultTopic();
@@ -47,6 +55,9 @@ namespace logport{
 
 	    protected:
 	    	void installInitScript();
+
+	    private:
+	    	Database *db;
 
 
 	    public:
