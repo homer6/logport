@@ -18,17 +18,30 @@ wget -O librdkafka.so.1 https://github.com/homer6/logport/blob/master/build/libr
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 
-# Install, start, and enable the service. This also sets the default topic and brokers list.
-sudo ./logport install my_cluster_logs kafka1:9092,kafka2:9092,kafka3:9092
+# Install, start, and enable the service.
+sudo ./logport install
 
 # Delete the downloaded files (optional)
 rm librdkafka.so.1
 rm logport
 
-# Add some files to be watched (this uses the default topic and brokers list above, 
-# but you can specify non-defaults with the --topic and --brokers flags).
-# You can specify many files (or patterns to add many files).
-logport watch /var/log/*.log /var/log/syslog
+# Add some files to watch (specify many here and/or with a pattern)
+logport watch --brokers kafka1:9092,kafka2:9092,kafka3:9092 --topic my_system_logs_topic /var/log/syslog /var/log/*.log
+
+# Check which files are being watched
+logport watches
+
+ watch_id | watched_filepath               | brokers                             | topic                | file_offset_sent
+---------------------------------------------------------------------------------------------------------------------------
+        1 | /var/log/syslog                | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        2 | /var/log/alternatives.log      | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        3 | /var/log/apport.log            | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        4 | /var/log/auth.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        5 | /var/log/bootstrap.log         | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        6 | /var/log/cloud-init.log        | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        7 | /var/log/cloud-init-output.log | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        8 | /var/log/dpkg.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+        9 | /var/log/kern.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
 ```
 
 
