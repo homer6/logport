@@ -21,16 +21,17 @@ namespace logport{
 
         if( result_code != SQLITE_OK ){
 
-            if( this->statement != NULL ){
+            string error_message( sqlite3_errmsg(this->db) );
 
-                string error_message( sqlite3_errmsg(this->db) );
+            if( this->statement != NULL ){
+                
                 sqlite3_close( this->db );
 
                 throw std::runtime_error( "Sqlite: " + error_message );
 
             }
 
-            throw std::runtime_error( "Sqlite: could not create prepared statement (out of memory)." );
+            throw std::runtime_error( "Sqlite: could not create prepared statement: " + error_message );
 
         }
 
