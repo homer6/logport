@@ -127,6 +127,16 @@ while true; do echo "sample log entry at `date`" >> sample.log; sleep 1; done
 kafkacat -C -b 127.0.0.1 -t hello -f 'Topic %t [%p] at offset %o: key %k: %s\n'
 ```
 
+# Ephemeral Watch (logport now)
+
+Running `logport now` will block. While running, it creates a temporary watch
+to temporarily send log data to a topic. It takes the same options as `logport watch`.
+But, unlike `logport watch`, watches are not retained after you exit. Also, it can
+only watch one file (the first provided).
+```
+logport now --brokers 192.168.1.91 --topic my_logs sample.log
+```
+
 
 
 # Logrotate Example
