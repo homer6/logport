@@ -19,6 +19,10 @@ namespace logport{
 
             void watch(); //throws on failure
 
+            string filterLogLine( const string& unfiltered_log_line ) const;
+
+            string escapeToJsonString( const string& unescaped_string ) const;
+
             int run;
 
         protected:

@@ -44,6 +44,9 @@ namespace logport{
 	        void addWatch( const Watch& watch );
 	        void listWatches();
 
+			void watchNow( const Watch& watch ) const;
+
+
 	        Database& getDatabase();
 
 
@@ -52,6 +55,9 @@ namespace logport{
 
 	        string executeCommand( const string& command );
 	        bool fileExists( const string& filename );
+
+
+
 
 	    protected:
 	    	void installInitScript();

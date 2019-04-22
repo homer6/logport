@@ -147,6 +147,7 @@ namespace logport{
 "   watch      Add a watch (will also implicitly install logport)\n"
 "   unwatch    Remove a watch\n"
 "   watches    List all watches\n"
+"   now        Watches a file temporarily (same options as watch)\n"
 "\n"
 "manage settings\n"
 "   set        Set a setting's value\n"
@@ -212,7 +213,7 @@ namespace logport{
 		//	cout << this->command_line_arguments[x] << endl;   		
     	//}
 
-    	if( this->command == "watch" ){
+    	if( this->command == "watch" || this->command == "now" ){
 
     		if( argc <= 2 ){
     			this->printHelpWatch();
@@ -272,7 +273,11 @@ namespace logport{
 	    		watch.watched_filepath = current_argument;
 	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
 
-	    		this->addWatch( watch );
+	    		if( this->command == "now" ){
+	    			this->watchNow( watch );
+	    		}else{
+	    			this->addWatch( watch );
+	    		}
 
     			current_argument_offset++;
 
@@ -441,15 +446,17 @@ namespace logport{
 		statement.reset();
 		statement.clearBindings();
 
+	}
 
-		/*
+
+	void LogPort::watchNow( const Watch& watch ) const{
+
 		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
 
 		InotifyWatcher watcher( watch.watched_filepath, watch.undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
 		//inotify_watcher_ptr = &watcher;
 
 		watcher.watch(); //main loop; blocks
-		*/
 
 	}
 
@@ -589,6 +596,9 @@ namespace logport{
 		return *this->db;
 
 	}
+
+
+
 
 
 }

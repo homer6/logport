@@ -49,10 +49,11 @@ logport watches
 
 Logport expects either unstructured log lines or single-line JSON. 
 
-If logport detects a left brace character `{` as the first character,
-it will embed the provided single-line JSON in the top-level of the JSON produced by logport.
+If logport detects a left brace character `{` as the first character, it will embed the provided single-line 
+JSON in the top-level of the JSON produced by logport. This embedded JSON must begin and end with braces.
 
-If logport does not detect a left brace, it will assume it to be single-line unstructured text and will escape the unstructured text to be embedded in the JSON produced by logport.
+If logport does not detect a left brace, it will assume it to be single-line unstructured text and will 
+escape the unstructured text to be embedded in the JSON produced by logport.
 
 ### Unstructured Example
 
@@ -60,11 +61,11 @@ Unstructured Original Line: `my unstructured original log line abc123`
 
 Unstructured Kafka Message: `{"@timestamp":1555955180.385583,"log":"my unstructured original log line abc123"}`
 
-### JSON Example
+### Embedded JSON Example
 
 JSON Original Line: `{"my":"custom","json":"object"}`
 
-JSON Kafka Message: `{"@timestamp":1555955180.385583,{"my":"custom","json":"object"}}`
+JSON Kafka Message: `{"@timestamp":1555955180.385583,"my":"custom","json":"object"}`
 
 
 
@@ -91,6 +92,7 @@ manage watches
    watch      Add a watch (will also implicitly install logport)
    unwatch    Remove a watch
    watches    List all watches
+   now        Watches a file temporarily (same options as watch)
 
 manage settings
    set        Set a setting's value

@@ -19,6 +19,8 @@
 
 #include "LevelTriggeredEpollWatcher.h"
 
+#include <sys/time.h>
+
 
 
 namespace logport{
@@ -153,7 +155,8 @@ namespace logport{
 
                 this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
 
-                this->kafka_producer.produce( "starting up - replaying undelivered log" );
+                string filtered_log_line = this->filterLogLine("starting up - replaying undelivered log");
+                this->kafka_producer.produce( filtered_log_line );
 
                 //ingest the undelivered_log contents
                 replaying_undelivered_log = true;
@@ -168,7 +171,8 @@ namespace logport{
             }else{
 
                 this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
-                this->kafka_producer.produce( "starting up" );
+                string filtered_log_line = this->filterLogLine("starting up");
+                this->kafka_producer.produce( filtered_log_line );
 
             }
 
@@ -279,9 +283,14 @@ namespace logport{
                                         std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
                                     }
 
+                                    
+
                                     if( sent_message.size() > 0 ){
+
+                                        string filtered_log_line = this->filterLogLine( sent_message );
+
                                         //handle consecutive newline characters (by dropping them)
-                                        this->kafka_producer.produce( sent_message );
+                                        this->kafka_producer.produce( filtered_log_line );
                                         this->kafka_producer.poll();
 
                                         //skips the new line
@@ -289,11 +298,13 @@ namespace logport{
 
                                         //re-sync the being and end iterators
                                         current_message_begin_it = current_message_end_it;
-                                    }
 
-                                    std::cout << "log_chunk(" << log_chunk.size() << "): " << std::endl;
-                                    std::cout << "sent_message(" << sent_message.size() << "): " << sent_message << std::endl;
-                                    std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
+                                        std::cout << "log_chunk(" << log_chunk.size() << "): " << std::endl;
+                                        std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                        std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
+                                        std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
+
+                                    }
 
                                 }else{
 
@@ -333,7 +344,8 @@ namespace logport{
 
                             //if there's any previous_log_partial left over, flush it before continuing
                             if( previous_log_partial.size() ){
-                                this->kafka_producer.produce( previous_log_partial );
+                                string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
+                                this->kafka_producer.produce( filtered_previous_log_partial );
                                 previous_log_partial.clear();
                             }
 
@@ -346,7 +358,8 @@ namespace logport{
 
                             //if there's any previous_log_partial left over, flush it before shutting down
                             if( previous_log_partial.size() ){
-                                this->kafka_producer.produce( previous_log_partial );
+                                string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
+                                this->kafka_producer.produce( filtered_previous_log_partial );
                                 previous_log_partial.clear();
                             }
 
@@ -377,6 +390,97 @@ namespace logport{
         }
 
 
+
+    }
+
+
+
+    string InotifyWatcher::escapeToJsonString( const string& unescaped_string ) const{
+
+        string escaped_string;
+
+        for( std::string::size_type x = 0; x < unescaped_string.size(); ++x ){
+
+            char current_character = unescaped_string[x];
+
+            switch( current_character ){
+                case 92: escaped_string += "\\\\"; break;       //Backslash is replaced with \\ string
+                case 8: escaped_string += "\\b"; break;         //Backspace is replaced with \b
+                case 12: escaped_string += "\\f"; break;        //Form feed is replaced with \f
+                case 10: escaped_string += "\\n"; break;        //Newline is replaced with \n
+                case 13: escaped_string += "\\r"; break;        //Carriage return is replaced with \r
+                case 9: escaped_string += "\\t"; break;         //Tab is replaced with \t
+                case 34: escaped_string += "\\\""; break;       //Double quote is replaced with \"
+                default: escaped_string += current_character;
+            };
+
+        }
+
+        return escaped_string;
+
+    }
+
+
+
+    string InotifyWatcher::filterLogLine( const string& unfiltered_log_line ) const{
+
+        string filtered_log_line = unfiltered_log_line;
+
+
+        //get timestamp (nanoseconds)
+            string current_time_string = "0.0";
+            timespec current_time;
+            if( clock_gettime(CLOCK_REALTIME, &current_time) == 0 ){
+
+                char buffer[50];
+
+                // thanks to https://stackoverflow.com/a/8304728/278976
+                sprintf( buffer, "%lld.%.9ld", (long long)current_time.tv_sec, current_time.tv_nsec );
+                current_time_string = string(buffer);
+
+            }
+
+
+        // add your pre-filtering code here
+        /*
+        if( 0 ){
+            filtered_log_line = "{\"log_type\":\"tombstone\"}";
+            return filtered_log_line;
+        }
+        */
+
+
+        size_t log_length = filtered_log_line.size();
+
+        if( log_length == 0 ){
+            return filtered_log_line;
+        }
+
+
+        //unstructured single-line log entry
+            if( filtered_log_line[0] != '{' ){
+
+                filtered_log_line = "{\"@timestamp\":" + current_time_string + ",\"log\":\"" + this->escapeToJsonString(filtered_log_line) + "\"}";
+                return filtered_log_line;
+
+            }
+
+
+
+        //embedded single-line JSON
+            if( filtered_log_line[0] == '{' && log_length >= 4 ){
+
+                //this embedded single-line JSON MUST begin and end with a brace
+
+                string removed_braces = filtered_log_line.substr( 1, log_length - 2 );
+
+                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + removed_braces + "}";
+                return filtered_log_line;
+
+            }
+
+
+        return filtered_log_line;
 
     }
 
