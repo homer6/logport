@@ -19,7 +19,7 @@ namespace logport{
 	    	PreparedStatement( const Database& database, const string& statement_sql );  //eg. http://www.sqlite.org/c3ref/bind_blob.html
 	    	~PreparedStatement();
 
-	    	// The leftmost SQL parameter has an offset of 1
+	    	// The leftmost SQL parameter has an offset of 0
 	    	// Unbound parameters are interpreted as NULL.
 			void bindInt32( int offset, const int32_t value );
 			void bindInt64( int offset, const int64_t value );

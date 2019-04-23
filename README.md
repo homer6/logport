@@ -97,6 +97,7 @@ manage watches
 manage settings
    set        Set a setting's value
    unset      Clear a setting's value
+   settings   List all settings
 
 Please see: https://github.com/homer6/logport to report issues
 or view documentation.

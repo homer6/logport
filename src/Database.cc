@@ -10,6 +10,7 @@ using std::string;
 #include "PreparedStatement.h"
 
 
+
 namespace logport{
 
     Database::Database(){
@@ -55,6 +56,12 @@ namespace logport{
             ")"
         );
 
+        this->execute( "CREATE TABLE settings ( "
+                "key TEXT PRIMARY KEY, "
+                "value TEXT "
+            ")"
+        );
+
     }
 
 
@@ -77,7 +84,7 @@ namespace logport{
 
     vector<Watch> Database::getWatches(){
 
-        PreparedStatement statement( *this, "select * from watches;" );
+        PreparedStatement statement( *this, "SELECT * FROM watches;" );
 
         vector<Watch> watches;
 
@@ -93,6 +100,42 @@ namespace logport{
 
     }
 
+
+    map<string,string> Database::getSettings(){
+
+        PreparedStatement statement( *this, "SELECT * FROM settings;" );
+
+        map<string,string> settings;
+
+        while( statement.step() == SQLITE_ROW ){
+
+            string key = statement.getText(0);
+            string value = statement.getText(1);
+
+            settings[key] = value;
+            
+        }
+
+        return settings;
+
+    }
+
+
+
+    string Database::getSetting( const string& key ){
+
+        PreparedStatement statement( *this, "SELECT * FROM settings WHERE key = ?;" );
+        statement.bindText( 0, key );
+
+        string value;
+
+        while( statement.step() == SQLITE_ROW ){
+            value = statement.getText(0);
+        }
+
+        return value;
+
+    }
 
 
 }

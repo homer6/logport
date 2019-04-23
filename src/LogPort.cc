@@ -27,6 +27,10 @@ using std::endl;
 #include <sys/stat.h>
 
 
+#include <map>
+using std::map;
+
+
 static logport::LogPort* logport_app_ptr;
 
 static void signal_handler_stop( int /*sig*/ ){
@@ -152,6 +156,7 @@ namespace logport{
 "manage settings\n"
 "   set        Set a setting's value\n"
 "   unset      Clear a setting's value\n"
+"   settings   List all settings\n"
 "\n"
 "Please see: https://github.com/homer6/logport to report issues \n"
 "or view documentation.\n";
@@ -177,6 +182,22 @@ namespace logport{
 				"Mandatory arguments to long options are mandatory for short options too.\n"
 				"  -b, --brokers [BROKERS]    a csv list of kafka brokers (optional: defaults to brokers default)\n"
 				"  -t, --topic [TOPIC]        a destination kafka topic (optional: defaults to topic default)"
+		<< endl;
+
+	}
+
+	void LogPort::printHelpSet(){
+
+		cerr << "Usage: logport set [KEY] [VALUE]\n"
+				"Sets a setting to a value.\n"
+		<< endl;
+
+	}
+
+	void LogPort::printHelpUnset(){
+
+		cerr << "Usage: logport unset [KEY]\n"
+				"Removes a setting.\n"
 		<< endl;
 
 	}
@@ -299,6 +320,43 @@ namespace logport{
 
     	if( this->command == "uninstall" ){
     		this->uninstall();
+    		return 0;
+    	}
+
+    	if( this->command == "set" ){
+
+    		if( argc <= 3 ){
+    			this->printHelpSet();
+    			return -1;
+    		}
+
+    		string key = this->command_line_arguments[ 2 ];
+    		string value = this->command_line_arguments[ 3 ];
+
+    		this->addSetting( key, value );
+
+    		return 0;
+    	}
+
+
+
+    	if( this->command == "unset" ){
+
+    		if( argc <= 2 ){
+    			this->printHelpUnset();
+    			return -1;
+    		}
+
+    		string key = this->command_line_arguments[ 2 ];
+
+    		this->removeSetting( key );
+
+    		return 0;
+    	}
+
+
+    	if( this->command == "settings" ){
+    		this->listSettings();
     		return 0;
     	}
 
@@ -447,6 +505,152 @@ namespace logport{
 		statement.clearBindings();
 
 	}
+
+
+	bool LogPort::addSetting( const string& key, const string& value ){
+
+		Database& db = this->getDatabase();
+
+		PreparedStatement statement( db, "INSERT OR REPLACE INTO settings ( key, value ) VALUES ( ?, ? );" );
+
+		statement.bindText( 0, key );
+		statement.bindText( 1, value );
+
+		try{
+
+			statement.step();
+			return true;
+
+		}catch( ... ){
+
+			return false;
+
+		}
+
+	}
+
+
+
+	string LogPort::getSetting( const string& key ){
+
+		Database& db = this->getDatabase();
+
+		return db.getSetting( key );
+
+	}
+
+
+	bool LogPort::removeSetting( const string& key ){
+
+		Database& db = this->getDatabase();
+
+		PreparedStatement statement( db, "DELETE FROM settings WHERE key = ?;" );
+
+		statement.bindText( 0, key );
+
+		try{
+
+			statement.step();
+			return true;
+
+		}catch( ... ){
+
+			return false;
+
+		}
+
+	}
+
+
+
+	void LogPort::listSettings(){
+
+		Database& db = this->getDatabase();
+
+		map<string,string> settings = db.getSettings();
+
+		if( settings.size() == 0 ){
+			cout << "No settings found." << endl;
+			return;
+		}
+
+		vector<string> column_labels;
+		column_labels.push_back( " key" ); //add a space for left padding
+		column_labels.push_back( "value" );
+
+		int num_table_columns = column_labels.size();
+
+		//calculate the widths of the columns so they fit nicely
+
+			//the vector index is the column number (first column 0)
+			vector<size_t> column_widths_maximums( num_table_columns, 0 ); //all zeros as initial values
+
+			//account for the column data
+			for( map<string,string>::iterator it = settings.begin(); it != settings.end(); ++it ){
+
+				string key = it->first;
+				string value = it->second;
+
+				// key
+					size_t key_size = key.size() + 1; //add 1 for left padding
+					if( key_size > column_widths_maximums[0] ){
+						column_widths_maximums[0] = key_size;
+					}
+					
+				// value
+					if( value.size() > column_widths_maximums[1] ){
+						column_widths_maximums[1] = value.size();
+					}
+
+			}
+
+
+			// account for the column header widths
+			for( int x = 0; x < num_table_columns; x++ ){
+				if( column_labels[x].size() > column_widths_maximums[x] ){
+					column_widths_maximums[x] = column_labels[x].size();
+				}
+			}
+
+
+
+		int character_column_count = 0;
+	
+
+		// print the column headers (labels)
+			for( int x = 0; x < num_table_columns; x++ ){
+
+				int column_width = column_widths_maximums[x];
+
+				if( x + 1 == num_table_columns ){
+					//last column
+					cout << std::left << std::setw(column_width) << column_labels[x] << endl; 
+				}else{
+					cout << std::left << std::setw(column_width) << column_labels[x] << " | "; 
+				}
+
+				character_column_count += column_width;
+
+			}
+
+		// print the underline for the column headers
+			cout << string( character_column_count + ( num_table_columns * 3 ) - 2, '-') << endl;
+
+
+		// print all of the records
+		for( map<string,string>::iterator it = settings.begin(); it != settings.end(); ++it ){
+
+			string key = it->first;
+			string value = it->second;
+
+			cout << std::left << std::setw(column_widths_maximums[0]) << " " + key << " | ";
+			cout << std::left << std::setw(column_widths_maximums[1]) << value << endl;
+
+		}
+
+	}
+
+
 
 
 	void LogPort::watchNow( const Watch& watch ) const{

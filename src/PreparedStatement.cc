@@ -51,11 +51,13 @@ namespace logport{
 
     void PreparedStatement::bindInt32( int offset, const int32_t value ){
 
-        //The leftmost SQL parameter has an index of 1
+        //The leftmost SQL parameter has an index of 1 in the sqlite API
+        //We're changing that to be 0 so that it's consistent with the column family functions
+        //To make this adaption, ensure that we add 1 to the provided offset.
 
         // http://www.sqlite.org/c3ref/bind_blob.html
 
-        int result_code = sqlite3_bind_int( this->statement, offset, value );
+        int result_code = sqlite3_bind_int( this->statement, offset + 1, value );
 
         if( result_code != SQLITE_OK ){
 
@@ -70,11 +72,13 @@ namespace logport{
 
     void PreparedStatement::bindInt64( int offset, const int64_t value ){
 
-        //The leftmost SQL parameter has an index of 1
+        //The leftmost SQL parameter has an index of 1 in the sqlite API
+        //We're changing that to be 0 so that it's consistent with the column family functions
+        //To make this adaption, ensure that we add 1 to the provided offset.
 
         // http://www.sqlite.org/c3ref/bind_blob.html
 
-        int result_code = sqlite3_bind_int64( this->statement, offset, value );
+        int result_code = sqlite3_bind_int64( this->statement, offset + 1, value );
 
         if( result_code != SQLITE_OK ){
 
@@ -89,7 +93,9 @@ namespace logport{
 
     void PreparedStatement::bindText( int offset, const string& text ){
 
-        //The leftmost SQL parameter has an index of 1
+        //The leftmost SQL parameter has an index of 1 in the sqlite API
+        //We're changing that to be 0 so that it's consistent with the column family functions
+        //To make this adaption, ensure that we add 1 to the provided offset.
 
         // http://www.sqlite.org/c3ref/bind_blob.html
 
@@ -97,7 +103,7 @@ namespace logport{
             return;
         }
 
-        int result_code = sqlite3_bind_text( this->statement, offset, text.c_str(), static_cast<int>(text.size()), SQLITE_TRANSIENT );
+        int result_code = sqlite3_bind_text( this->statement, offset + 1, text.c_str(), static_cast<int>(text.size()), SQLITE_TRANSIENT );
 
         if( result_code != SQLITE_OK ){
 

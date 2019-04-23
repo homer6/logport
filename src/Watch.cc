@@ -30,7 +30,7 @@ namespace logport{
 
     void Watch::bind( PreparedStatement& statement, bool skip_id ) const{
 
-        int current_offset = 1;
+        int current_offset = 0;
 
         if( !skip_id ){
             statement.bindInt64( current_offset++, this->id );

@@ -7,6 +7,10 @@ using std::string;
 #include <vector>
 using std::vector;
 
+#include <map>
+using std::map;
+
+
 class sqlite3;
 
 namespace logport{
@@ -23,6 +27,9 @@ namespace logport{
 	    	void createDatabase();
 
 	    	vector<Watch> getWatches();
+
+	    	string getSetting( const string& key );
+	    	map<string,string> getSettings();
 
 	    	void execute( const string& command );
 

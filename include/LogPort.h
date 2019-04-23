@@ -36,6 +36,8 @@ namespace logport{
 
 
 	        void printHelpWatch();
+	        void printHelpSet();
+	        void printHelpUnset();
 
 
 	        int runFromCommandLine( int argc, char **argv );
@@ -45,6 +47,12 @@ namespace logport{
 	        void listWatches();
 
 			void watchNow( const Watch& watch ) const;
+
+
+			bool addSetting( const string& key, const string& value );
+			string getSetting( const string& key );
+			bool removeSetting( const string& key );
+			void listSettings();
 
 
 	        Database& getDatabase();
