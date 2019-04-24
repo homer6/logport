@@ -15,6 +15,9 @@ namespace logport{
 	class Watch;
 	class Database;
 
+	class Inspector;
+
+
 	class LogPort{
 
 	    public:
@@ -42,6 +45,7 @@ namespace logport{
 	        void printHelpWatch();
 	        void printHelpSet();
 	        void printHelpUnset();
+	        void printHelpInspect();
 
 	        void printUnsupportedPlatform();
 
@@ -62,6 +66,7 @@ namespace logport{
 
 
 	        Database& getDatabase();
+	        Inspector& getInspector();
 
 
 	        string getDefaultTopic();
@@ -73,7 +78,7 @@ namespace logport{
 
 	    private:
 	    	Database *db;
-
+	    	Inspector* inspector;
 
 	    public:
 	     	bool run;
@@ -81,6 +86,7 @@ namespace logport{
 	     	vector<string> command_line_arguments;
 	     	string current_version;
 	     	Platform current_platform;
+	     	
 
 	};
 

@@ -100,6 +100,9 @@ manage settings
    unset      Clear a setting's value
    settings   List all settings
 
+collect telemetry
+   inspect    Produce telemetry to telemetry log file
+
 Please see: https://github.com/homer6/logport to report issues
 or view documentation.
 ```

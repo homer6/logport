@@ -26,6 +26,15 @@ using std::endl;
 
 #include "Common.h"
 
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <cstring>
+#include <errno.h>
+#include <signal.h>
+
+#include "Inspector.h"
+
 
 #include <map>
 using std::map;
@@ -43,7 +52,7 @@ static void signal_handler_stop( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), run(true), current_version("0.1.0")
+		:db(NULL), inspector(NULL), run(true), current_version("0.1.0")
 	{
 
 
@@ -53,6 +62,10 @@ namespace logport{
 
 		if( this->db != NULL ){
 			delete this->db;
+		}
+
+		if( this->inspector != NULL ){
+			delete this->inspector;
 		}
 
 	}
@@ -297,6 +310,9 @@ namespace logport{
 "   unset      Clear a setting's value\n"
 "   settings   List all settings\n"
 "\n"
+"collect telemetry\n"
+"   inspect    Produce telemetry to telemetry log file\n"
+"\n"
 "Please see: https://github.com/homer6/logport to report issues \n"
 "or view documentation.\n";
 
@@ -337,6 +353,15 @@ namespace logport{
 
 		cerr << "Usage: logport unset [KEY]\n"
 				"Removes a setting.\n"
+		<< endl;
+
+	}
+
+	void LogPort::printHelpInspect(){
+
+		cerr << "Usage: logport inspect [SUBSET]\n"
+				"Produces telemetry readings to /usr/local/logport/telemetry.log\n"
+				"Valid SUBSETs are 'all', 'second', '10_second', or 'day'."
 		<< endl;
 
 	}
@@ -525,7 +550,33 @@ namespace logport{
     		this->status();
     		return 0;
     	}
+    	
+    	if( this->command == "inspect" ){
 
+    		if( argc <= 2 ){
+    			this->printHelpInspect();
+    			return -1;
+    		}
+
+    		string subset = this->command_line_arguments[ 2 ];
+
+    		Inspector& inspector = this->getInspector();
+
+    		if( subset == "all" ){
+    			inspector.monitorTwoSecondsTick();
+    			inspector.monitorTenSecondsTick();
+    			inspector.monitorDayTick();
+    		}else if( subset == "second" ){
+    			inspector.monitorTwoSecondsTick();
+    		}else if( subset == "10_second" ){
+    			inspector.monitorTenSecondsTick();
+    		}else if( subset == "day" ){
+    			inspector.monitorDayTick();
+    		}
+
+    		return 0;
+
+    	}
 
     	this->printHelp();
 
@@ -931,6 +982,16 @@ namespace logport{
 		}
 
 		return *this->db;
+
+	}
+
+	Inspector& LogPort::getInspector(){
+
+		if( this->inspector == NULL ){
+			this->inspector = new Inspector();
+		}
+
+		return *this->inspector;
 
 	}
 

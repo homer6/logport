@@ -58,6 +58,34 @@ namespace logport{
 	}
 
 
+
+    string escape_to_json_string( const string& unescaped_string ){
+
+        string escaped_string;
+
+        for( std::string::size_type x = 0; x < unescaped_string.size(); ++x ){
+
+            char current_character = unescaped_string[x];
+
+            switch( current_character ){
+                case 92: escaped_string += "\\\\"; break;       //Backslash is replaced with \\ string
+                case 8: escaped_string += "\\b"; break;         //Backspace is replaced with \b
+                case 12: escaped_string += "\\f"; break;        //Form feed is replaced with \f
+                case 10: escaped_string += "\\n"; break;        //Newline is replaced with \n
+                case 13: escaped_string += "\\r"; break;        //Carriage return is replaced with \r
+                case 9: escaped_string += "\\t"; break;         //Tab is replaced with \t
+                case 34: escaped_string += "\\\""; break;       //Double quote is replaced with \"
+                default: escaped_string += current_character;
+            };
+
+        }
+
+        return escaped_string;
+
+    }
+
+
+
 }
 
 
