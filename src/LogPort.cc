@@ -24,7 +24,7 @@ using std::endl;
 #include <fstream>
 #include <sstream>
 
-#include <sys/stat.h>
+#include "Common.h"
 
 
 #include <map>
@@ -73,14 +73,16 @@ namespace logport{
 
 	void LogPort::install(){
 
-		this->executeCommand( "mkdir -p /usr/local/lib/logport" );
-		this->executeCommand( "cp logport /usr/local/bin" );
+		this->current_platform.determinePlatform();
+
+		execute_command( "mkdir -p /usr/local/lib/logport" );
+		execute_command( "cp logport /usr/local/bin" );
 
 		//create the db
-			this->executeCommand( "mkdir -p /usr/local/logport" );
-			this->executeCommand( "chmod 777 /usr/local/logport" );
+			execute_command( "mkdir -p /usr/local/logport" );
+			execute_command( "chmod 777 /usr/local/logport" );
 
-			bool database_exists = this->fileExists("/usr/local/logport/logport.db"); 
+			bool database_exists = file_exists("/usr/local/logport/logport.db");
 			
 			{
 				Database db; //creates the db
@@ -89,28 +91,38 @@ namespace logport{
 				}
 			}//explicitly closes the db so we can chmod it
 
-			this->executeCommand( "chmod ugo+w /usr/local/logport/logport.db" );
+			execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
 		
 		this->installInitScript();
-		this->executeCommand( "cp librdkafka.so.1 /usr/local/lib/logport" );
-		this->executeCommand( "systemctl start logport" );
-		this->executeCommand( "systemctl enable logport" );
-		
-		cout << "Logport installed as a system service, started, and enabled on bootup." << endl;
+		execute_command( "cp librdkafka.so.1 /usr/local/lib/logport" );
+
+		cout << "Logport installed as a system service." << endl;
+		cout << "Please type 'logport start' and 'logport enable' to start and enable the service to start on boot." << endl;
 		cout << "The logport binary is now in your path." << endl;
-		cout << "Run these commands to remove the downloaded files. This will not remove logport from your system." << endl;
 
 	}
 
 
+	void LogPort::printUnsupportedPlatform(){
+
+		cout << "Unsupported platform. Please open an issue to request support " << endl;
+		cout << "for your platform: https://github.com/homer6/logport/issues" << endl;
+
+	}
+
+
+
+
 	void LogPort::uninstall(){
 
-		this->executeCommand( "systemctl stop logport" );
-		this->executeCommand( "systemctl disable logport" );
-		this->executeCommand( "rm /etc/init.d/logport" );
+		this->current_platform.determinePlatform();
 
-		this->executeCommand( "rm /usr/local/logport/logport.db" );
-		this->executeCommand( "rmdir /usr/local/logport" );
+		this->stop();
+		this->disable();
+		execute_command( "rm /etc/init.d/logport" );
+
+		execute_command( "rm /usr/local/logport/logport.db" );
+		execute_command( "rmdir /usr/local/logport" );
 
 		cout << "Run these commands to finalize the uninstall:" << endl;
 		cout << "rm /usr/local/lib/logport/librdkafka.so.1" << endl;
@@ -120,11 +132,138 @@ namespace logport{
 	}
 
 
-	void LogPort::start(){}
-	void LogPort::stop(){}
-	void LogPort::restart(){}
-	void LogPort::reload(){}
-	void LogPort::status(){}
+	void LogPort::start(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl start logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport start" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+		
+	}
+
+
+	
+	void LogPort::stop(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl stop logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport stop" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
+
+
+	void LogPort::restart(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl restart logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport restart" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
+
+
+	void LogPort::reload(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl reload logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport reload" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
+
+	void LogPort::status(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl status logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport status" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
+
+
+
+	void LogPort::enable(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl enable logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport on" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
+
+
+	void LogPort::disable(){
+
+		this->current_platform.determinePlatform();
+
+		if( this->current_platform.os.name == "ubuntu" ){
+			cout << execute_command( "systemctl disable logport.service" );
+			return;
+		}
+
+		if( this->current_platform.os.name == "oel" ){
+			cout << execute_command( "chkconfig logport off" );
+			return;
+		}
+
+		this->printUnsupportedPlatform();
+
+	}
 
 
     void LogPort::printHelp(){
@@ -201,6 +340,8 @@ namespace logport{
 		<< endl;
 
 	}
+
+
 
     int LogPort::runFromCommandLine( int argc, char **argv ){
 
@@ -357,6 +498,31 @@ namespace logport{
 
     	if( this->command == "settings" ){
     		this->listSettings();
+    		return 0;
+    	}
+
+    	if( this->command == "start" ){
+    		this->start();
+    		return 0;
+    	}
+
+    	if( this->command == "stop" ){
+    		this->stop();
+    		return 0;
+    	}
+
+    	if( this->command == "restart" ){
+    		this->restart();
+    		return 0;
+    	}
+
+    	if( this->command == "reload" ){
+    		this->reload();
+    		return 0;
+    	}
+
+    	if( this->command == "status" ){
+    		this->status();
     		return 0;
     	}
 
@@ -665,39 +831,6 @@ namespace logport{
 	}
 
 
-	string LogPort::executeCommand( const string& command ){
-
-		// http://stackoverflow.com/questions/478898/how-to-execute-a-command-and-get-output-of-command-within-c-using-posix
-		char buffer[4096];
-
-		string output;
-
-		FILE* pipe = popen( command.c_str(), "r" );
-		if( !pipe ){
-			throw std::runtime_error( "popen() failed" );
-		}
-
-		try {
-			while( fgets(buffer, 4096, pipe) != NULL ){
-				output += buffer;
-			}
-		}catch(...){
-			pclose( pipe );
-			throw;
-		}
-		pclose( pipe );
-
-		return output;
-
-	}
-
-
-	bool LogPort::fileExists( const string& filename ){
-		//https://stackoverflow.com/questions/12774207/fastest-way-to-check-if-a-file-exist-using-standard-c-c11-c
-		struct stat buffer;
-		return ( stat(filename.c_str(), &buffer) == 0 ); 
-	}
-
 
 
 
@@ -785,7 +918,7 @@ namespace logport{
 		init_d_file << init_d_file_contents;
 		init_d_file.close();
 
-		this->executeCommand( "chmod ugo+x /etc/init.d/logport" );
+		execute_command( "chmod ugo+x /etc/init.d/logport" );
 
 	}
 
@@ -800,8 +933,6 @@ namespace logport{
 		return *this->db;
 
 	}
-
-
 
 
 

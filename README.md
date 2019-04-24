@@ -7,6 +7,7 @@ Logport watches a log file for changes and lines to kafka (one line per message)
 - 64 bit linux
 - libc 2.5+
 - linux kernel 2.6.9+
+- /usr/local/logport/logport.db must not be on an NFS mount
 
 ## Dependencies
 - rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.o/en/latest/installation_librdkafka.html or see OEL511.compile)

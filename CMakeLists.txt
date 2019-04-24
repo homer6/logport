@@ -10,6 +10,8 @@ include_directories(
 
 set( LOGPORT_SOURCES
     src/Database.cc
+    src/Common.cc
+    src/Platform.cc
     src/PreparedStatement.cc
     src/LogPort.cc
     src/Watch.cc

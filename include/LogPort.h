@@ -7,7 +7,7 @@ using std::string;
 #include <vector>
 using std::vector;
 
-
+#include "Platform.h"
 
 
 namespace logport{
@@ -24,12 +24,16 @@ namespace logport{
 	        void ensureInstalled();
 	        void install();
 	        void uninstall();
+	        void enable();
+	        void disable();
 
 	        void start();
 	        void stop();
 	        void restart();
 	        void reload();
 	        void status();
+
+
 
 	        void printHelp();
 	        void printVersion();
@@ -38,6 +42,8 @@ namespace logport{
 	        void printHelpWatch();
 	        void printHelpSet();
 	        void printHelpUnset();
+
+	        void printUnsupportedPlatform();
 
 
 	        int runFromCommandLine( int argc, char **argv );
@@ -61,11 +67,6 @@ namespace logport{
 	        string getDefaultTopic();
 	        string getDefaultBrokers();
 
-	        string executeCommand( const string& command );
-	        bool fileExists( const string& filename );
-
-
-
 
 	    protected:
 	    	void installInitScript();
@@ -79,7 +80,7 @@ namespace logport{
 	     	string command;
 	     	vector<string> command_line_arguments;
 	     	string current_version;
-
+	     	Platform current_platform;
 
 	};
 
