@@ -78,6 +78,7 @@ namespace logport{
 	        string getDefaultTopic();
 	        string getDefaultBrokers();
 	        string getDefaultProductCode();
+	        string getDefaultHostname();
 
 
 	    protected:

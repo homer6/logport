@@ -54,6 +54,7 @@ namespace logport{
                 "brokers TEXT, "
                 "topic TEXT, "
                 "product_code TEXT, "
+                "hostname TEXT, "
                 "pid INTEGER DEFAULT -1 "
             ")"
         );

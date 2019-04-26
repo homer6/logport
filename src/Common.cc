@@ -10,13 +10,16 @@
 #include <sys/stat.h>
 
 
-#include "stdlib.h"
-#include "stdio.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include <sstream>
 
+#include <unistd.h>
 
+#include <cerrno>
+
+#include <cstring>
 
 
 namespace logport{
@@ -63,6 +66,22 @@ namespace logport{
 		std::stringstream buffer;
 		buffer << text_file.rdbuf();
 		return buffer.str();
+
+	}
+
+
+	string get_real_filepath( const string& relative_filepath ){
+	
+		char buffer[4097];
+
+        char *result = realpath( relative_filepath.c_str(), buffer );
+
+        if( result == NULL ){
+        	//realpath failed
+			throw std::runtime_error( std::strerror(errno) );
+        }
+
+        return string(buffer);
 
 	}
 
@@ -221,6 +240,23 @@ namespace logport{
 	    return proc_status_get_string_value( pid, "Name:" );
 	}
 
+
+
+	       
+	string get_hostname(){
+
+		char hostname_buffer[1024];
+
+		int result = gethostname( hostname_buffer, 1024 );
+
+		if( result == -1 ){
+			return "";
+		}
+
+		return string( hostname_buffer );
+
+	}
+       
 
 
 }

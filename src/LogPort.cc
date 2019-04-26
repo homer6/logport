@@ -418,7 +418,9 @@ namespace logport{
 				"  -t, --topic [TOPIC]                 a destination kafka topic\n"
 				"                                      (optional; defaults to setting: default.topic)\n"
 				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
-				"                                      (optional; defaults to setting: default.product_code)"
+				"                                      (optional; defaults to setting: default.product_code)\n"
+				"  -h, --hostname [hostname]           the name of this host that will appear in the log entries\n"
+				"                                      (optional; defaults to setting: default.hostname)"
 		<< endl;
 
 	}
@@ -494,6 +496,7 @@ namespace logport{
     		string this_brokers = this->getDefaultBrokers();
     		string this_topic = this->getDefaultTopic();
     		string this_product_code = this->getDefaultProductCode();
+    		string this_hostname = this->getDefaultHostname();
 
 
     		// stop the service, if it's running, to modify the watches
@@ -565,11 +568,31 @@ namespace logport{
 
     			}
 
+
+    			if( current_argument == "--hostname" || current_argument == "-h" ){
+
+    				current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				this_hostname = this->command_line_arguments[ current_argument_offset ];
+
+					current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				continue;
+
+    			}
+
 	    		Watch watch;
 	    		watch.brokers = this_brokers;
 	    		watch.topic = this_topic;
 	    		watch.product_code = this_product_code;
-	    		watch.watched_filepath = current_argument;
+	    		watch.hostname = this_hostname;
+	    		watch.watched_filepath = get_real_filepath(current_argument);
 	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
 
 	    		if( this_product_code == "prd000" ){
@@ -750,6 +773,20 @@ namespace logport{
 	}
 
 
+	string LogPort::getDefaultHostname(){
+
+		string default_hostname = this->getSetting( "default.hostname" );
+
+		if( default_hostname.size() > 0 ){
+			return default_hostname;
+		}
+
+		return get_hostname();
+
+	}
+
+
+
 	void LogPort::listWatches(){
 
 		Database& db = this->getDatabase();
@@ -767,6 +804,7 @@ namespace logport{
 		column_labels.push_back( "brokers" );
 		column_labels.push_back( "topic" );
 		column_labels.push_back( "product_code" );
+		column_labels.push_back( "hostname" );
 		column_labels.push_back( "file_offset_sent" );
 		column_labels.push_back( "pid" );
 
@@ -806,13 +844,23 @@ namespace logport{
 						column_widths_maximums[3] = watch.topic.size();
 					}
 
+				// product_code
+					if( watch.product_code.size() > column_widths_maximums[4] ){
+						column_widths_maximums[4] = watch.product_code.size();
+					}
+
+				// hostname
+					if( watch.hostname.size() > column_widths_maximums[5] ){
+						column_widths_maximums[5] = watch.hostname.size();
+					}
+
 				// file_offset
 					std::ostringstream file_offset_stringstream;
 					file_offset_stringstream << watch.file_offset;
 					string file_offset_string = file_offset_stringstream.str();
 
-					if( file_offset_string.size() > column_widths_maximums[4] ){
-						column_widths_maximums[4] = file_offset_string.size();
+					if( file_offset_string.size() > column_widths_maximums[6] ){
+						column_widths_maximums[6] = file_offset_string.size();
 					}
 
 				// pid
@@ -820,8 +868,8 @@ namespace logport{
 					pid_stringstream << watch.pid;
 					string pid_string = pid_stringstream.str();
 
-					if( pid_string.size() > column_widths_maximums[5] ){
-						column_widths_maximums[5] = pid_string.size();
+					if( pid_string.size() > column_widths_maximums[7] ){
+						column_widths_maximums[7] = pid_string.size();
 					}
 
 			}
@@ -869,8 +917,9 @@ namespace logport{
 			cout << std::left << std::setw(column_widths_maximums[2]) << watch.brokers << " | ";
 			cout << std::left << std::setw(column_widths_maximums[3]) << watch.topic << " | ";
 			cout << std::left << std::setw(column_widths_maximums[4]) << watch.product_code << " | ";
-			cout << std::right << std::setw(column_widths_maximums[5]) << watch.file_offset << " | ";
-			cout << std::right << std::setw(column_widths_maximums[6]) << watch.pid << endl;
+			cout << std::left << std::setw(column_widths_maximums[5]) << watch.hostname << " | ";
+			cout << std::right << std::setw(column_widths_maximums[6]) << watch.file_offset << " | ";
+			cout << std::right << std::setw(column_widths_maximums[7]) << watch.pid << endl;
 
 		}
 
@@ -882,7 +931,7 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, product_code, pid ) VALUES ( ?, ?, ?, ?, ?, ? );" );
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, product_code, hostname, pid ) VALUES ( ?, ?, ?, ?, ?, ?, ? );" );
 
 		watch.bind( statement, true );
 

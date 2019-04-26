@@ -482,13 +482,13 @@ namespace logport{
         }
 
 
-        string json_source_and_prd = "\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
+        string json_meta = "{\"@timestamp\":" + current_time_string + ",\"host\":\"" + this->watch.hostname + "\",\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
 
 
         //unstructured single-line log entry
             if( filtered_log_line[0] != '{' ){
 
-                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + json_source_and_prd + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
+                filtered_log_line = json_meta + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
                 return filtered_log_line;
 
             }
@@ -502,7 +502,7 @@ namespace logport{
 
                 string removed_braces = filtered_log_line.substr( 1, log_length - 2 );
 
-                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + json_source_and_prd + "," + removed_braces + "}";
+                filtered_log_line = json_meta + ",\"log_obj\":" + removed_braces + "}";
                 return filtered_log_line;
 
             }

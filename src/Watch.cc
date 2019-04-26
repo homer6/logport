@@ -52,14 +52,15 @@ namespace logport{
         this->brokers = statement.getText( 3 );
         this->topic = statement.getText( 4 );
         this->product_code = statement.getText( 5 );
-        this->pid = statement.getInt32( 6 );
+        this->hostname = statement.getText( 6 );
+        this->pid = statement.getInt32( 7 );
 
         this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
 
     }
 
-    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, int64_t file_offset, pid_t pid )
-        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
+    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset, pid_t pid )
+        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), hostname(hostname), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
     {
 
     }
@@ -78,6 +79,7 @@ namespace logport{
         statement.bindText( current_offset++, this->brokers );
         statement.bindText( current_offset++, this->topic );
         statement.bindText( current_offset++, this->product_code );
+        statement.bindText( current_offset++, this->hostname );
         statement.bindInt32( current_offset++, this->pid );
 
     }

@@ -17,6 +17,10 @@ namespace logport{
 
 	string get_file_contents( const string& filepath);
 
+	//gets the absolute path (resolves symlinks too)
+	string get_real_filepath( const string& relative_filepath );
+
+
 	string escape_to_json_string( const string& unescaped_string );
 
 
@@ -27,6 +31,12 @@ namespace logport{
 	int proc_status_get_rss_usage_in_kb( pid_t pid );
 
 	string proc_status_get_name( pid_t pid );
+
+
+	// computer identification
+
+    string get_hostname();
+
 
 
 }
