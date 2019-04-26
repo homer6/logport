@@ -88,7 +88,7 @@ namespace logport{
 		logport_app_ptr = this;
 
         // Signal handler for clean shutdown 
-        //signal( SIGINT, signal_handler_stop );
+        signal( SIGINT, signal_handler_stop );
 
 	}
 
@@ -154,6 +154,33 @@ namespace logport{
 	}
 
 
+	void LogPort::destroy(){
+
+		bool is_running = this->isRunning();
+
+		if( is_running ){
+			this->stop();
+		}	
+		
+		execute_command( "rm /usr/local/logport/logport.db" );
+		execute_command( "rm /usr/local/logport/logport.log" );
+
+		{
+			Database db; //creates the db
+			db.createDatabase();
+		}//explicitly closes the db so we can chmod it
+
+		execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
+
+		if( is_running ){
+			this->start();
+		}
+
+	}
+
+
+
+
 	void LogPort::start(){
 
 		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
@@ -167,7 +194,11 @@ namespace logport{
 
 		cout << "Starting logport... started." << endl;
 
-		daemon(0,1);
+		int daemon_result = daemon( 0, 1 );
+		if( daemon_result == -1 ){
+			throw std::runtime_error( "Failed to fork with daemon." );
+		}
+
 		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
 		output_pid_file << getpid();
 		output_pid_file.close();
@@ -224,7 +255,11 @@ namespace logport{
 
 		cout << " restarted." << endl;
 
-		daemon(0,1);
+		int daemon_result = daemon( 0, 1 );
+		if( daemon_result == -1 ){
+			throw std::runtime_error( "Failed to fork with daemon." );
+		}
+
 		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
 		output_pid_file << getpid();
 		output_pid_file.close();
@@ -254,6 +289,19 @@ namespace logport{
 			cout << "logport service is running (PID: " << logport_pid << ")" << endl;
 		}else{
 			cout << "logport service is not running." << endl;
+		}
+
+	}
+
+
+	bool LogPort::isRunning(){
+
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
+
+		if( input_pid_file ){
+			return true;
+		}else{
+			return false;
 		}
 
 	}
@@ -298,6 +346,10 @@ namespace logport{
 	}
 
 
+
+
+
+
     void LogPort::printHelp(){
 
 		const char *help_message = 
@@ -323,11 +375,13 @@ namespace logport{
 "   unwatch    Remove a watch\n"
 "   watches    List all watches\n"
 "   now        Watches a file temporarily (same options as watch)\n"
+"   destory    Restore logport to factory settings. Clears all watches.\n"
 "\n"
 "manage settings\n"
 "   set        Set a setting's value\n"
 "   unset      Clear a setting's value\n"
 "   settings   List all settings\n"
+"   destory    Restore logport to factory settings. Clears all watches.\n"
 "\n"
 "collect telemetry\n"
 "   inspect    Produce telemetry to telemetry log file\n"
@@ -500,6 +554,11 @@ namespace logport{
 
     	if( this->command == "install" ){
     		this->install();
+    		return 0;
+    	}
+
+    	if( this->command == "destroy" ){
+    		this->destroy();
     		return 0;
     	}
 

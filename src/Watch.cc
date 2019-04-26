@@ -132,7 +132,7 @@ namespace logport{
             inotify_watcher_ptr = &watcher;
 
             //register signal handler
-            //signal( SIGINT, signal_handler_stop );
+            signal( SIGINT, signal_handler_stop );
 
             try{
                  watcher.watch( *this, log_file ); //main loop; blocks

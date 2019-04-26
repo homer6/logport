@@ -25,19 +25,21 @@ namespace logport{
 	    	~LogPort();
 
 	    	void closeDatabase();
-
-
-	        void ensureInstalled();
+	    	
 	        void install();
 	        void uninstall();
+	        void destroy();
 	        void enable();
 	        void disable();
+	        
 
 	        void start();
 	        void stop();
 	        void restart();
 	        void reload();
 	        void status();
+
+	        bool isRunning();
 
 
 
