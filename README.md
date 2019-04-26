@@ -94,11 +94,13 @@ manage watches
    unwatch    Remove a watch
    watches    List all watches
    now        Watches a file temporarily (same options as watch)
+   destory    Restore logport to factory settings. Clears all watches.
 
 manage settings
    set        Set a setting's value
    unset      Clear a setting's value
    settings   List all settings
+   destory    Restore logport to factory settings. Clears all watches.
 
 collect telemetry
    inspect    Produce telemetry to telemetry log file

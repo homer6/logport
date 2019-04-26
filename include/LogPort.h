@@ -29,6 +29,7 @@ namespace logport{
 	        void install();
 	        void uninstall();
 	        void destroy();
+	        void restoreToFactoryDefault();
 	        void enable();
 	        void disable();
 	        

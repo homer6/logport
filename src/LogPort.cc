@@ -165,12 +165,7 @@ namespace logport{
 		execute_command( "rm /usr/local/logport/logport.db" );
 		execute_command( "rm /usr/local/logport/logport.log" );
 
-		{
-			Database db; //creates the db
-			db.createDatabase();
-		}//explicitly closes the db so we can chmod it
-
-		execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
+		this->restoreToFactoryDefault();
 
 		if( is_running ){
 			this->start();
@@ -179,6 +174,16 @@ namespace logport{
 	}
 
 
+	void LogPort::restoreToFactoryDefault(){
+
+		{
+			Database db; //creates the db
+			db.createDatabase();
+		}//explicitly closes the db so we can chmod it
+
+		execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
+
+	}
 
 
 	void LogPort::start(){
