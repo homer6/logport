@@ -162,8 +162,8 @@ namespace logport{
 			this->stop();
 		}	
 		
-		execute_command( "rm /usr/local/logport/logport.db" );
-		execute_command( "rm /usr/local/logport/logport.log" );
+		execute_command( "rm -f /usr/local/logport/logport.db" );
+		execute_command( "rm -f /usr/local/logport/logport.log" );
 
 		this->restoreToFactoryDefault();
 
@@ -245,7 +245,7 @@ namespace logport{
 			pid_t pid;
 			input_pid_file >> pid;
 
-			cout << "Stopping logport - PID: " << pid << "... ";
+			cout << "Stopping logport - PID: " << pid << "... " << std::flush;
 			killpg( pid, SIGTERM );
 			cout << "stopped." << endl;
 
@@ -256,7 +256,7 @@ namespace logport{
 		}
 
 		cout << "Restarting..." << std::flush;
-		sleep(20);
+		sleep(1);
 
 		cout << " restarted." << endl;
 
@@ -413,8 +413,12 @@ namespace logport{
 				"Adds one or more files to be watched.\n"
 				"\n"
 				"Mandatory arguments to long options are mandatory for short options too.\n"
-				"  -b, --brokers [BROKERS]    a csv list of kafka brokers (optional: defaults to brokers default)\n"
-				"  -t, --topic [TOPIC]        a destination kafka topic (optional: defaults to topic default)"
+				"  -b, --brokers [BROKERS]             a csv list of kafka brokers\n"
+				"                                      (optional; defaults to setting: default.brokers)\n"
+				"  -t, --topic [TOPIC]                 a destination kafka topic\n"
+				"                                      (optional; defaults to setting: default.topic)\n"
+				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
+				"                                      (optional; defaults to setting: default.product_code)"
 		<< endl;
 
 	}
@@ -489,6 +493,16 @@ namespace logport{
 
     		string this_brokers = this->getDefaultBrokers();
     		string this_topic = this->getDefaultTopic();
+    		string this_product_code = this->getDefaultProductCode();
+
+
+    		// stop the service, if it's running, to modify the watches
+	    		bool is_running = this->isRunning();
+
+		    	if( is_running ){
+					this->stop();
+				}
+			
 
     		while( current_argument_offset < argc ){
 
@@ -532,11 +546,35 @@ namespace logport{
 
     			}
 
+
+    			if( current_argument == "--product-code" || current_argument == "--prd" || current_argument == "-p" ){
+
+    				current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				this_product_code = this->command_line_arguments[ current_argument_offset ];
+
+					current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				continue;
+
+    			}
+
 	    		Watch watch;
 	    		watch.brokers = this_brokers;
 	    		watch.topic = this_topic;
+	    		watch.product_code = this_product_code;
 	    		watch.watched_filepath = current_argument;
 	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
+
+	    		if( this_product_code == "prd000" ){
+	    			cout << "Warning: default product_code used. Consider establishing a default (eg. 'logport set default.product_code prd123') before creating watches." << endl;
+	    		}	    		
 
 	    		if( this->command == "now" ){
 	    			this->watchNow( watch );
@@ -547,6 +585,11 @@ namespace logport{
     			current_argument_offset++;
 
     		}
+
+    		// restart the service, if it was running
+	    		if( is_running ){
+					this->start();
+				}
 
     		return 0;
 
@@ -669,11 +712,41 @@ namespace logport{
 
 
 	string LogPort::getDefaultTopic(){
-		return "default_topic";
+
+		string default_topic = this->getSetting( "default.topic" );
+
+		if( default_topic.size() > 0 ){
+			return default_topic;
+		}
+
+		return "logport_logs";
+
 	}
 
+
 	string LogPort::getDefaultBrokers(){
+
+		string default_brokers = this->getSetting( "default.brokers" );
+
+		if( default_brokers.size() > 0 ){
+			return default_brokers;
+		}
+
 		return "localhost:9092";
+
+	}
+
+
+	string LogPort::getDefaultProductCode(){
+
+		string default_product_code = this->getSetting( "default.product_code" );
+
+		if( default_product_code.size() > 0 ){
+			return default_product_code;
+		}
+
+		return "prd000";
+
 	}
 
 
@@ -693,6 +766,7 @@ namespace logport{
 		column_labels.push_back( "watched_filepath" );
 		column_labels.push_back( "brokers" );
 		column_labels.push_back( "topic" );
+		column_labels.push_back( "product_code" );
 		column_labels.push_back( "file_offset_sent" );
 		column_labels.push_back( "pid" );
 
@@ -794,8 +868,9 @@ namespace logport{
 			cout << std::left << std::setw(column_widths_maximums[1]) << watch.watched_filepath << " | ";
 			cout << std::left << std::setw(column_widths_maximums[2]) << watch.brokers << " | ";
 			cout << std::left << std::setw(column_widths_maximums[3]) << watch.topic << " | ";
-			cout << std::right << std::setw(column_widths_maximums[4]) << watch.file_offset << " | ";
-			cout << std::right << std::setw(column_widths_maximums[5]) << watch.pid << endl;
+			cout << std::left << std::setw(column_widths_maximums[4]) << watch.product_code << " | ";
+			cout << std::right << std::setw(column_widths_maximums[5]) << watch.file_offset << " | ";
+			cout << std::right << std::setw(column_widths_maximums[6]) << watch.pid << endl;
 
 		}
 
@@ -807,7 +882,7 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, pid ) VALUES ( ?, ?, ?, ?, ? );" );
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, product_code, pid ) VALUES ( ?, ?, ?, ?, ?, ? );" );
 
 		watch.bind( statement, true );
 

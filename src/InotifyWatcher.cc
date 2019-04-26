@@ -74,9 +74,8 @@ namespace logport{
     #define LOG_READ_BUFFER_SIZE 64 * 1024
 
 
-
-    InotifyWatcher::InotifyWatcher( Database& db, const string &watched_file, const string &undelivered_log, KafkaProducer &kafka_producer )
-        :db(db), run(1), watched_file(watched_file), undelivered_log(undelivered_log), kafka_producer(kafka_producer)
+    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, std::ofstream& log_file )
+        :db(db), run(1), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), log_file(log_file)
     {
 
         /* Create inotify instance; add watch descriptors */
@@ -111,7 +110,7 @@ namespace logport{
 
 
 
-    void InotifyWatcher::watch( Watch watch, std::ofstream& log_file ){
+    void InotifyWatcher::startWatching(){
 
         char inotify_event_buffer[INOTIFY_EVENT_BUFFER_LENGTH] __attribute__ ((aligned(8)));
         ssize_t inotify_event_num_read;
@@ -121,7 +120,7 @@ namespace logport{
         char error_string_buffer[1024];
 
 
-        int watched_file_fd = open( watched_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );
+        int watched_file_fd = open( this->watched_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );
         if( watched_file_fd == -1 ){
             snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
             throw std::runtime_error( "Failed to open log file: errno " + string(error_string_buffer) );
@@ -483,10 +482,13 @@ namespace logport{
         }
 
 
+        string json_source_and_prd = "\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
+
+
         //unstructured single-line log entry
             if( filtered_log_line[0] != '{' ){
 
-                filtered_log_line = "{\"@timestamp\":" + current_time_string + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
+                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + json_source_and_prd + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
                 return filtered_log_line;
 
             }
@@ -500,7 +502,7 @@ namespace logport{
 
                 string removed_braces = filtered_log_line.substr( 1, log_length - 2 );
 
-                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + removed_braces + "}";
+                filtered_log_line = "{\"@timestamp\":" + current_time_string + "," + json_source_and_prd + "," + removed_braces + "}";
                 return filtered_log_line;
 
             }

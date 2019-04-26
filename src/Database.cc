@@ -53,6 +53,7 @@ namespace logport{
                 "file_offset INTEGER DEFAULT 0, "
                 "brokers TEXT, "
                 "topic TEXT, "
+                "product_code TEXT, "
                 "pid INTEGER DEFAULT -1 "
             ")"
         );
@@ -149,7 +150,7 @@ namespace logport{
         string value;
 
         while( statement.step() == SQLITE_ROW ){
-            value = statement.getText(0);
+            value = statement.getText(1);
         }
 
         return value;

@@ -51,14 +51,15 @@ namespace logport{
         this->file_offset = statement.getInt64( 2 );
         this->brokers = statement.getText( 3 );
         this->topic = statement.getText( 4 );
-        this->pid = statement.getInt32( 5 );
+        this->product_code = statement.getText( 5 );
+        this->pid = statement.getInt32( 6 );
 
         this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
 
     }
 
-    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, int64_t file_offset, pid_t pid )
-        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
+    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, int64_t file_offset, pid_t pid )
+        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
     {
 
     }
@@ -76,6 +77,7 @@ namespace logport{
         statement.bindInt64( current_offset++, this->file_offset );
         statement.bindText( current_offset++, this->brokers );
         statement.bindText( current_offset++, this->topic );
+        statement.bindText( current_offset++, this->product_code );
         statement.bindInt32( current_offset++, this->pid );
 
     }
@@ -128,14 +130,14 @@ namespace logport{
 
             KafkaProducer kafka_producer( this->brokers, this->topic, this->undelivered_log_filepath );  
 
-            InotifyWatcher watcher( db, this->watched_filepath, this->undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
+            InotifyWatcher watcher( db, kafka_producer, *this, log_file );  //expects undelivered log to exist
             inotify_watcher_ptr = &watcher;
 
             //register signal handler
             signal( SIGINT, signal_handler_stop );
 
             try{
-                 watcher.watch( *this, log_file ); //main loop; blocks
+                 watcher.startWatching(); //main loop; blocks
             }catch( std::exception &e ){
                  log_file << "logport: watcher.watch exception: " << e.what() << endl;
                  exit(1);

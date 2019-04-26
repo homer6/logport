@@ -11,6 +11,7 @@ using std::vector;
 
 #include <fstream>
 
+
 namespace logport{
 
     class Database;
@@ -19,10 +20,10 @@ namespace logport{
     class InotifyWatcher{
 
         public:
-            InotifyWatcher( Database& db, const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
+            InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, std::ofstream& log_file );
             ~InotifyWatcher();
 
-            void watch( Watch watch, std::ofstream& log_file ); //throws on failure
+            void startWatching(); //throws on failure
 
             string filterLogLine( const string& unfiltered_log_line ) const;
 
@@ -45,7 +46,8 @@ namespace logport{
             int inotify_fd;
             int inotify_watch_descriptor;
 
-            
+            Watch& watch;
+            std::ofstream& log_file;
 
     };
 
