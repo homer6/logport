@@ -167,7 +167,7 @@ namespace logport{
 
 		cout << "Starting logport... started." << endl;
 
-		daemon(0,0);
+		daemon(0,1);
 		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
 		output_pid_file << getpid();
 		output_pid_file.close();
@@ -224,7 +224,7 @@ namespace logport{
 
 		cout << " restarted." << endl;
 
-		daemon(0,0);
+		daemon(0,1);
 		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
 		output_pid_file << getpid();
 		output_pid_file.close();
@@ -743,7 +743,7 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic ) VALUES ( ?, ?, ?, ? );" );
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, pid ) VALUES ( ?, ?, ?, ?, ? );" );
 
 		watch.bind( statement, true );
 
@@ -1041,11 +1041,12 @@ namespace logport{
 		vector<Watch> watches;
 
 		{
-			Database& db = this->getDatabase();
+			Database db;
 			watches = db.getWatches();
-			this->closeDatabase();
-			//closing DB handle for each forks below
 		}
+
+
+		sleep(3);
 
 		 
 		if( watches.size() == 0 ){
@@ -1071,10 +1072,11 @@ namespace logport{
 
 			//WNOHANG makes this return immediately (so we can monitor RSS)
 			pid_t child_pid = waitpid(-1, &status, WUNTRACED | WNOHANG | WCONTINUED );
+			//pid_t child_pid = waitpid( -1, &status, WUNTRACED | WCONTINUED );
 
 			if( child_pid == -1 ){
 				//error, or no child processes
-				log_file << "logport: waitpid() error or no watches present." << strerror(errno) << endl;
+				log_file << "logport: waitpid() error or no watches present. " << strerror(errno) << endl;
 				sleep(60);
 			}
 

@@ -7,6 +7,8 @@
 #include <string>
 using std::string;
 
+#include <unistd.h>
+
 
 namespace logport{
 

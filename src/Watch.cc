@@ -1,9 +1,29 @@
 #include "Watch.h"
 #include "PreparedStatement.h"
+#include "Database.h"
+#include "Common.h"
 
 
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
+
+
+#include <stdint.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <cstring>
+#include <errno.h>
+#include <signal.h>
+
+
+#include <iostream>
+#include <iomanip>
+using std::cout;
+using std::cerr;
+using std::endl;
+
+#include <stdlib.h>
 
 
 static logport::InotifyWatcher* inotify_watcher_ptr;
@@ -32,6 +52,9 @@ namespace logport{
         this->brokers = statement.getText( 3 );
         this->topic = statement.getText( 4 );
         this->pid = statement.getInt32( 5 );
+
+        this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
+
     }
 
     Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, int64_t file_offset, pid_t pid )
@@ -64,7 +87,7 @@ namespace logport{
         PreparedStatement statement( db, "UPDATE watches SET pid = ? WHERE id = ? ;" );
 
         statement.bindInt32( 0, this->pid );
-        statement.bindInt64( 0, this->id );
+        statement.bindInt64( 1, this->id );
 
         statement.step();
         statement.reset();
@@ -79,7 +102,7 @@ namespace logport{
         PreparedStatement statement( db, "UPDATE watches SET file_offset = ? WHERE id = ? ;" );
 
         statement.bindInt64( 0, this->file_offset );
-        statement.bindInt64( 0, this->id );
+        statement.bindInt64( 1, this->id );
 
         statement.step();
         statement.reset();
@@ -99,6 +122,8 @@ namespace logport{
 
             //child
 
+            log_file << "Starting watch: " << this->watched_filepath << endl;
+
             Database db;
 
             KafkaProducer kafka_producer( this->brokers, this->topic, this->undelivered_log_filepath );  
@@ -107,9 +132,16 @@ namespace logport{
             inotify_watcher_ptr = &watcher;
 
             //register signal handler
-            signal( SIGINT, signal_handler_stop );
+            //signal( SIGINT, signal_handler_stop );
 
-            watcher.watch( *this ); //main loop; blocks
+            try{
+                 watcher.watch( *this, log_file ); //main loop; blocks
+            }catch( std::exception &e ){
+                 log_file << "logport: watcher.watch exception: " << e.what() << endl;
+                 exit(1);
+            }
+
+            exit(0);
 
 
         }else if( pid == -1 ){

@@ -9,6 +9,8 @@ using std::vector;
 
 #include "KafkaProducer.h"
 
+#include <fstream>
+
 namespace logport{
 
     class Database;
@@ -20,7 +22,7 @@ namespace logport{
             InotifyWatcher( Database& db, const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
             ~InotifyWatcher();
 
-            void watch( Watch watch ); //throws on failure
+            void watch( Watch watch, std::ofstream& log_file ); //throws on failure
 
             string filterLogLine( const string& unfiltered_log_line ) const;
 
