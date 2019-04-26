@@ -419,7 +419,7 @@ namespace logport{
 				"                                      (optional; defaults to setting: default.topic)\n"
 				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
 				"                                      (optional; defaults to setting: default.product_code)\n"
-				"  -h, --hostname [hostname]           the name of this host that will appear in the log entries\n"
+				"  -h, --hostname [HOSTNAME]           the name of this host that will appear in the log entries\n"
 				"                                      (optional; defaults to setting: default.hostname)"
 		<< endl;
 
@@ -497,6 +497,8 @@ namespace logport{
     		string this_topic = this->getDefaultTopic();
     		string this_product_code = this->getDefaultProductCode();
     		string this_hostname = this->getDefaultHostname();
+
+    		int number_of_added_watches = 0;
 
 
     		// stop the service, if it's running, to modify the watches
@@ -595,24 +597,29 @@ namespace logport{
 	    		watch.watched_filepath = get_real_filepath(current_argument);
 	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
 
-	    		if( this_product_code == "prd000" ){
-	    			cout << "Warning: default product_code used. Consider establishing a default (eg. 'logport set default.product_code prd123') before creating watches." << endl;
-	    		}	    		
-
 	    		if( this->command == "now" ){
-	    			this->watchNow( watch );
+	    			this->watchNow( watch );	    			
 	    		}else{
 	    			this->addWatch( watch );
+	    			number_of_added_watches++;
 	    		}
 
     			current_argument_offset++;
 
     		}
 
+    		if( this_product_code == "prd000" ){
+    			cout << "Warning: default product_code used. Consider establishing a default (eg. 'logport set default.product_code prd123') before creating watches." << endl;
+    			cout << "Please see the watch help: 'logport watch'" << endl;
+    		}
+
+
     		// restart the service, if it was running
 	    		if( is_running ){
 					this->start();
 				}
+
+			cout << "Added " << number_of_added_watches << " watches." << endl;
 
     		return 0;
 
