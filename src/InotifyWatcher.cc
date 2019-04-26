@@ -23,6 +23,9 @@
 
 #include "Common.h"
 
+#include "Database.h"
+#include "Watch.h"
+
 
 namespace logport{
 
@@ -66,8 +69,8 @@ namespace logport{
 
 
 
-    InotifyWatcher::InotifyWatcher( const string &watched_file, const string &undelivered_log, KafkaProducer &kafka_producer )
-        :run(1), watched_file(watched_file), undelivered_log(undelivered_log), kafka_producer(kafka_producer)
+    InotifyWatcher::InotifyWatcher( Database& db, const string &watched_file, const string &undelivered_log, KafkaProducer &kafka_producer )
+        :db(db), run(1), watched_file(watched_file), undelivered_log(undelivered_log), kafka_producer(kafka_producer)
     {
 
         /* Create inotify instance; add watch descriptors */
@@ -102,7 +105,7 @@ namespace logport{
 
 
 
-    void InotifyWatcher::watch(){
+    void InotifyWatcher::watch( Watch watch ){
 
         char inotify_event_buffer[INOTIFY_EVENT_BUFFER_LENGTH] __attribute__ ((aligned(8)));
         ssize_t inotify_event_num_read;
@@ -250,6 +253,29 @@ namespace logport{
                         current_fd = watched_file_fd;
                     }
 
+
+                    //seek to current offset
+
+                        //determine the filesize
+                        off64_t end_of_file_position = lseek64( current_fd, 0, SEEK_END );
+
+                        //read the last_confirmed_sent (the last offset confirmed as received from kafka)
+                        off64_t last_confirmed_position = watch.file_offset;
+
+                        //reset the description offset to last_confirmed_position
+                        if( last_confirmed_position < end_of_file_position ){
+                            lseek64( current_fd, last_confirmed_position, SEEK_SET );
+                        }else{
+                            //offset cannot be beyond end of file
+                            watch.file_offset = 0;
+                            watch.saveOffset( this->db );
+                        }
+                        
+                        
+
+
+                    // read the next bytes
+
                     int bytes_read = read( current_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
 
                     if( bytes_read > 0 ){
@@ -294,6 +320,10 @@ namespace logport{
                                         this->kafka_producer.produce( filtered_log_line );
                                         this->kafka_producer.poll();
 
+                                        //update and save the committed offset
+                                        watch.file_offset += log_chunk.size();
+                                        watch.saveOffset( this->db );
+                                        
                                         //skips the new line
                                         current_message_end_it++;
 
@@ -347,6 +377,7 @@ namespace logport{
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
                                 this->kafka_producer.produce( filtered_previous_log_partial );
+                                this->kafka_producer.poll();
                                 previous_log_partial.clear();
                             }
 
@@ -361,8 +392,13 @@ namespace logport{
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
                                 this->kafka_producer.produce( filtered_previous_log_partial );
+                                this->kafka_producer.poll();
                                 previous_log_partial.clear();
                             }
+
+                            //update and save the committed offset back to the first byte
+                            watch.file_offset = 0;
+                            watch.saveOffset( this->db );
 
                         }
 

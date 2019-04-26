@@ -27,6 +27,18 @@ namespace logport{
 		//cout << issue_contents << endl;
 		//cout << uname_contents << endl;
 
+
+		string systemctl_which = execute_command( "which systemctl" );
+		if( systemctl_which.size() > 2 ){
+			this->service_manager = "systemctl";
+		}
+
+		string chkconfig_which = execute_command( "which chkconfig" );
+		if( chkconfig_which.size() > 2 ){
+			this->service_manager = "chkconfig";
+		}
+
+
 		std::size_t found;
 
 

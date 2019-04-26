@@ -11,18 +11,25 @@ using std::vector;
 
 namespace logport{
 
+    class Database;
+    class Watch;
+
     class InotifyWatcher{
 
         public:
-            InotifyWatcher( const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
+            InotifyWatcher( Database& db, const string& watched_file, const string &undelivered_log, KafkaProducer &kafka_producer );
             ~InotifyWatcher();
 
-            void watch(); //throws on failure
+            void watch( Watch watch ); //throws on failure
 
             string filterLogLine( const string& unfiltered_log_line ) const;
 
             string escapeToJsonString( const string& unescaped_string ) const;
 
+        protected:
+            Database& db;
+
+        public:
             int run;
 
         protected:
@@ -35,6 +42,8 @@ namespace logport{
 
             int inotify_fd;
             int inotify_watch_descriptor;
+
+            
 
     };
 

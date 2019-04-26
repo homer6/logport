@@ -31,6 +31,9 @@ namespace logport{
 	     	Version os;
 	     	Version kernel;
 
+	     	string service_manager;
+	     	
+
 	};
 
 }

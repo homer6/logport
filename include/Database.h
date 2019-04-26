@@ -10,6 +10,8 @@ using std::vector;
 #include <map>
 using std::map;
 
+#include <sys/types.h>
+
 
 class sqlite3;
 
@@ -27,6 +29,7 @@ namespace logport{
 	    	void createDatabase();
 
 	    	vector<Watch> getWatches();
+	    	Watch getWatchByPid( pid_t pid );
 
 	    	string getSetting( const string& key );
 	    	map<string,string> getSettings();

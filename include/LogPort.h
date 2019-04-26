@@ -24,6 +24,9 @@ namespace logport{
 	    	LogPort();
 	    	~LogPort();
 
+	    	void closeDatabase();
+
+
 	        void ensureInstalled();
 	        void install();
 	        void uninstall();
@@ -76,6 +79,10 @@ namespace logport{
 	    protected:
 	    	void installInitScript();
 
+	    	void startWatches();  //main loop (blocks)
+
+
+
 	    private:
 	    	Database *db;
 	    	Inspector* inspector;
@@ -86,6 +93,8 @@ namespace logport{
 	     	vector<string> command_line_arguments;
 	     	string current_version;
 	     	Platform current_platform;
+
+	     	string pid_filename;
 	     	
 
 	};

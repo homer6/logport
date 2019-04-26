@@ -52,7 +52,8 @@ namespace logport{
                 "filepath TEXT NOT NULL, "
                 "file_offset INTEGER DEFAULT 0, "
                 "brokers TEXT, "
-                "topic TEXT "
+                "topic TEXT, "
+                "pid INTEGER DEFAULT -1 "
             ")"
         );
 
@@ -99,6 +100,24 @@ namespace logport{
         return watches;
 
     }
+
+
+
+    Watch Database::getWatchByPid( pid_t pid ){
+
+        PreparedStatement statement( *this, "SELECT * FROM watches WHERE pid = ? ;" );
+        statement.bindInt32( 0, pid );
+
+        while( statement.step() == SQLITE_ROW ){
+
+            return Watch(statement);
+            
+        }
+
+        throw std::runtime_error( "Watch pid not found." );
+
+    }
+
 
 
     map<string,string> Database::getSettings(){

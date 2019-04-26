@@ -52,7 +52,7 @@ static void signal_handler_stop( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), inspector(NULL), run(true), current_version("0.1.0")
+		:db(NULL), inspector(NULL), run(true), current_version("0.1.0"), pid_filename("/var/run/logport.pid")
 	{
 
 
@@ -71,6 +71,15 @@ namespace logport{
 	}
 
 
+
+	void LogPort::closeDatabase(){
+
+		if( this->db != NULL ){
+			delete this->db;
+			this->db = NULL;
+		}
+
+	}
 
 
 
@@ -147,19 +156,23 @@ namespace logport{
 
 	void LogPort::start(){
 
-		this->current_platform.determinePlatform();
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
 
-		if( this->current_platform.os.name == "ubuntu" ){
-			cout << execute_command( "systemctl start logport.service" );
+		if( input_pid_file ){
+			pid_t logport_pid;
+			input_pid_file >> logport_pid;
+			cout << "logport service is already running - PID: " << logport_pid << endl;
 			return;
 		}
 
-		if( this->current_platform.os.name == "oel" ){
-			cout << execute_command( "chkconfig logport start" );
-			return;
-		}
+		cout << "Starting logport... started." << endl;
 
-		this->printUnsupportedPlatform();
+		daemon(0,0);
+		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
+		output_pid_file << getpid();
+		output_pid_file.close();
+		
+		this->startWatches();
 		
 	}
 
@@ -167,75 +180,81 @@ namespace logport{
 	
 	void LogPort::stop(){
 
-		this->current_platform.determinePlatform();
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
 
-		if( this->current_platform.os.name == "ubuntu" ){
-			cout << execute_command( "systemctl stop logport.service" );
-			return;
+		if( input_pid_file ){
+			pid_t logport_pid;
+			input_pid_file >> logport_pid;
+
+			cout << "Stopping logport - PID: " << logport_pid << "... " << std::flush;
+			killpg( logport_pid, SIGTERM );
+			cout << "stopped." << endl;
+
+			remove( this->pid_filename.c_str() );
+
+		}else{
+
+			cout << "Service was not running." << endl;
+
 		}
-
-		if( this->current_platform.os.name == "oel" ){
-			cout << execute_command( "chkconfig logport stop" );
-			return;
-		}
-
-		this->printUnsupportedPlatform();
 
 	}
 
 
 	void LogPort::restart(){
 
-		this->current_platform.determinePlatform();
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
 
-		if( this->current_platform.os.name == "ubuntu" ){
-			cout << execute_command( "systemctl restart logport.service" );
-			return;
+		if( input_pid_file ){
+			pid_t pid;
+			input_pid_file >> pid;
+
+			cout << "Stopping logport - PID: " << pid << "... ";
+			killpg( pid, SIGTERM );
+			cout << "stopped." << endl;
+
+		}else{
+
+			cout << "Service was not running." << endl;
+
 		}
 
-		if( this->current_platform.os.name == "oel" ){
-			cout << execute_command( "chkconfig logport restart" );
-			return;
-		}
+		cout << "Restarting..." << std::flush;
+		sleep(20);
 
-		this->printUnsupportedPlatform();
+		cout << " restarted." << endl;
+
+		daemon(0,0);
+		std::ofstream output_pid_file( this->pid_filename.c_str(), std::ofstream::out );
+		output_pid_file << getpid();
+		output_pid_file.close();
+		
+		this->startWatches();
 
 	}
+
+
 
 
 	void LogPort::reload(){
 
-		this->current_platform.determinePlatform();
-
-		if( this->current_platform.os.name == "ubuntu" ){
-			cout << execute_command( "systemctl reload logport.service" );
-			return;
-		}
-
-		if( this->current_platform.os.name == "oel" ){
-			cout << execute_command( "chkconfig logport reload" );
-			return;
-		}
-
-		this->printUnsupportedPlatform();
+		cout << "reload is not implemented yet" << endl;
 
 	}
 
+
+
 	void LogPort::status(){
 
-		this->current_platform.determinePlatform();
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
 
-		if( this->current_platform.os.name == "ubuntu" ){
-			cout << execute_command( "systemctl status logport.service" );
-			return;
+		if( input_pid_file ){
+			pid_t logport_pid;
+			input_pid_file >> logport_pid;
+			cout << "logport service is running (PID: " << logport_pid << ")" << endl;
+		}else{
+			cout << "logport service is not running." << endl;
 		}
-
-		if( this->current_platform.os.name == "oel" ){
-			cout << execute_command( "chkconfig logport status" );
-			return;
-		}
-
-		this->printUnsupportedPlatform();
 
 	}
 
@@ -245,12 +264,12 @@ namespace logport{
 
 		this->current_platform.determinePlatform();
 
-		if( this->current_platform.os.name == "ubuntu" ){
+		if( this->current_platform.service_manager == "systemctl" ){
 			cout << execute_command( "systemctl enable logport.service" );
 			return;
 		}
 
-		if( this->current_platform.os.name == "oel" ){
+		if( this->current_platform.service_manager == "chkconfig" ){
 			cout << execute_command( "chkconfig logport on" );
 			return;
 		}
@@ -264,12 +283,12 @@ namespace logport{
 
 		this->current_platform.determinePlatform();
 
-		if( this->current_platform.os.name == "ubuntu" ){
+		if( this->current_platform.service_manager == "systemctl" ){
 			cout << execute_command( "systemctl disable logport.service" );
 			return;
 		}
 
-		if( this->current_platform.os.name == "oel" ){
+		if( this->current_platform.service_manager == "chkconfig" ){
 			cout << execute_command( "chkconfig logport off" );
 			return;
 		}
@@ -611,6 +630,7 @@ namespace logport{
 		column_labels.push_back( "brokers" );
 		column_labels.push_back( "topic" );
 		column_labels.push_back( "file_offset_sent" );
+		column_labels.push_back( "pid" );
 
 		int num_table_columns = column_labels.size();
 
@@ -657,6 +677,15 @@ namespace logport{
 						column_widths_maximums[4] = file_offset_string.size();
 					}
 
+				// pid
+					std::ostringstream pid_stringstream;
+					pid_stringstream << watch.pid;
+					string pid_string = pid_stringstream.str();
+
+					if( pid_string.size() > column_widths_maximums[5] ){
+						column_widths_maximums[5] = pid_string.size();
+					}
+
 			}
 
 
@@ -701,7 +730,8 @@ namespace logport{
 			cout << std::left << std::setw(column_widths_maximums[1]) << watch.watched_filepath << " | ";
 			cout << std::left << std::setw(column_widths_maximums[2]) << watch.brokers << " | ";
 			cout << std::left << std::setw(column_widths_maximums[3]) << watch.topic << " | ";
-			cout << std::right << std::setw(column_widths_maximums[4]) << watch.file_offset << endl;
+			cout << std::right << std::setw(column_widths_maximums[4]) << watch.file_offset << " | ";
+			cout << std::right << std::setw(column_widths_maximums[5]) << watch.pid << endl;
 
 		}
 
@@ -870,7 +900,9 @@ namespace logport{
 
 
 
-	void LogPort::watchNow( const Watch& watch ) const{
+	void LogPort::watchNow( const Watch& /*watch*/ ) const{
+
+		/*
 
 		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
 
@@ -878,6 +910,8 @@ namespace logport{
 		//inotify_watcher_ptr = &watcher;
 
 		watcher.watch(); //main loop; blocks
+
+		*/
 
 	}
 
@@ -994,6 +1028,184 @@ namespace logport{
 		return *this->inspector;
 
 	}
+
+
+
+	void LogPort::startWatches(){
+
+		std::ofstream log_file;
+		log_file.open( "/usr/local/logport/logport.log", std::ios::out | std::ios::app );
+		log_file << "logport: started" << endl;
+
+
+		vector<Watch> watches;
+
+		{
+			Database& db = this->getDatabase();
+			watches = db.getWatches();
+			this->closeDatabase();
+			//closing DB handle for each forks below
+		}
+
+		 
+		if( watches.size() == 0 ){
+
+			log_file << "Started logport service with no files being watched." << endl;
+
+		}else{
+
+			for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+				Watch& watch = *it;
+				//this forks for each watch
+				watch.start( log_file );
+			}
+
+		}
+
+
+
+
+		int status;
+
+		while( 1 ){
+
+			//WNOHANG makes this return immediately (so we can monitor RSS)
+			pid_t child_pid = waitpid(-1, &status, WUNTRACED | WNOHANG | WCONTINUED );
+
+			if( child_pid == -1 ){
+				//error, or no child processes
+				log_file << "logport: waitpid() error or no watches present." << strerror(errno) << endl;
+				sleep(60);
+			}
+
+			if( child_pid == 0 ){
+				//no children have exited
+
+				//ensure each watch is not using more than 250MB of memory
+
+				for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+
+					Watch& watch = *it;
+
+					if( watch.pid > 0 ){
+						//if there's an existing process (ie. not the first loop iteration)
+
+						int watch_process_rss = proc_status_get_rss_usage_in_kb( watch.pid );
+						const string process_name = proc_status_get_name( watch.pid );
+
+						log_file << "logport: watch process_name(" << process_name << "), RSS(" << watch_process_rss << "KB), PID(" << watch.pid << ")" << endl;
+
+						if( watch_process_rss > 250000 ){ //250MB
+							//kill -9
+							//wait
+							//respawn
+							log_file << "logport: watch (pid: " << watch.pid << ", file: " << watch.watched_filepath << ") was killed because the RSS exceeded 250MB." << endl;
+
+							watch.last_pid = watch.pid;
+
+							watch.stop( log_file );
+
+							sleep(5);
+							
+							watch.start( log_file );
+							if( watch.last_pid == watch.pid ){
+								log_file << "logport: watch was killed and the new process has the same PID. Exiting." << endl;
+							}
+
+							sleep(5);
+
+						}
+
+					}
+
+
+				}
+
+				sleep(60);
+				continue;
+
+			}
+
+
+
+			bool just_killed = false;
+			for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+
+				Watch& watch = *it;
+
+				if( child_pid == watch.last_pid ){
+					//we just killed this process; ignore that it died
+					watch.last_pid = -1;
+					cout << "logport: Notified of last PID." << endl;
+					just_killed = true;
+				}
+
+			}
+			if( just_killed ){
+				continue;
+			}
+			
+
+			if( child_pid > 0 ){
+
+				//find current watch
+					Watch* current_watch = NULL;
+					for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+
+						Watch& watch = *it;
+
+						if( child_pid == watch.pid ){
+							current_watch = &watch;
+						}
+
+					}
+
+				// restart, if necessary
+				if( WIFEXITED(status) ){
+
+					log_file << "logport: PID (" << child_pid << ") exited with status " << WEXITSTATUS(status) << endl;
+					log_file << "restarting..." << endl;
+
+					if( current_watch != NULL ){
+						current_watch->last_pid = child_pid;
+						current_watch->start( log_file );
+					}
+
+				}else if( WIFSIGNALED(status) ){
+
+					log_file << "logport: PID (" << child_pid << ") killed by signal: " << WTERMSIG(status) << endl;
+					log_file << "restarting..." << endl;
+
+					if( current_watch != NULL ){
+						current_watch->last_pid = child_pid;
+						current_watch->start( log_file );
+					}
+
+				}else if( WIFSTOPPED(status) ){
+
+					log_file << "logport: PID (" << child_pid << ") stopped by signal: " << WSTOPSIG(status) << endl;
+
+				}else if( WIFCONTINUED(status) ){
+
+					log_file << "logport: PID (" << child_pid << ") continued: " << endl;
+
+				}else{
+
+					log_file << "logport: PID (" << child_pid << ") unknown return from waitpid: " << status << endl;
+
+				}
+
+			}
+
+		}
+
+
+
+	}
+
+
+
+
 
 
 
