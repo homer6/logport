@@ -8,6 +8,7 @@ using std::string;
 using std::vector;
 
 #include "Platform.h"
+#include "Observer.h"
 
 
 namespace logport{
@@ -25,6 +26,7 @@ namespace logport{
 	    	~LogPort();
 
 	    	void closeDatabase();
+	    	void closeObserver();
 	    	
 	        void install();
 	        void uninstall();
@@ -73,6 +75,7 @@ namespace logport{
 
 	        Database& getDatabase();
 	        Inspector& getInspector();
+	        Observer& getObserver();
 
 
 	        string getDefaultTopic();
@@ -91,6 +94,7 @@ namespace logport{
 	    private:
 	    	Database *db;
 	    	Inspector* inspector;
+	    	Observer* observer;
 
 	    public:
 	     	bool run;
@@ -100,6 +104,8 @@ namespace logport{
 	     	Platform current_platform;
 
 	     	string pid_filename;
+
+	     	bool verbose_mode;
 	     	
 
 	};

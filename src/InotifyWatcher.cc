@@ -19,8 +19,6 @@
 
 #include "LevelTriggeredEpollWatcher.h"
 
-#include <sys/time.h>
-
 #include "Common.h"
 
 #include "Database.h"
@@ -74,8 +72,8 @@ namespace logport{
     #define LOG_READ_BUFFER_SIZE 64 * 1024
 
 
-    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, std::ofstream& log_file )
-        :db(db), run(1), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), log_file(log_file)
+    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, Observer& observer )
+        :db(db), run(1), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), observer(observer)
     {
 
         /* Create inotify instance; add watch descriptors */
@@ -164,8 +162,7 @@ namespace logport{
 
                 this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
 
-                string filtered_log_line = this->filterLogLine("starting up - replaying undelivered log");
-                this->kafka_producer.produce( filtered_log_line );
+                this->kafka_producer.produce( this->filterLogLine("starting up - replaying undelivered log") );
 
                 //ingest the undelivered_log contents
                 replaying_undelivered_log = true;
@@ -176,15 +173,10 @@ namespace logport{
                     throw std::runtime_error( "Failed to open undelivered log temp file: errno " + string(error_string_buffer) );
                 }
 
-                this->kafka_producer.poll( 1000 );
-
             }else{
 
                 this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
-                string filtered_log_line = this->filterLogLine("starting up");
-                this->kafka_producer.produce( filtered_log_line );
-
-                this->kafka_producer.poll( 1000 );
+                this->kafka_producer.produce( this->filterLogLine("starting up") );
 
             }
 
@@ -230,7 +222,7 @@ namespace logport{
                             try_read = true;
                         }
 
-                        displayInotifyEvent(in_event);
+                        //displayInotifyEvent(in_event);
 
                         p += sizeof(struct inotify_event) + in_event->len;
 
@@ -342,11 +334,12 @@ namespace logport{
                                         //re-sync the being and end iterators
                                         current_message_begin_it = current_message_end_it;
 
+                                        /*
                                         std::cout << "log_chunk(" << log_chunk.size() << "): " << std::endl;
                                         std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
                                         std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
                                         std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
-
+                                        */
                                     }
 
                                 }else{
@@ -452,20 +445,6 @@ namespace logport{
         string filtered_log_line = unfiltered_log_line;
 
 
-        //get timestamp (nanoseconds)
-            string current_time_string = "0.0";
-            timespec current_time;
-            if( clock_gettime(CLOCK_REALTIME, &current_time) == 0 ){
-
-                char buffer[50];
-
-                // thanks to https://stackoverflow.com/a/8304728/278976
-                sprintf( buffer, "%lld.%.9ld", (long long)current_time.tv_sec, current_time.tv_nsec );
-                current_time_string = string(buffer);
-
-            }
-
-
         // add your pre-filtering code here
         /*
         if( 0 ){
@@ -482,7 +461,7 @@ namespace logport{
         }
 
 
-        string json_meta = "{\"@timestamp\":" + current_time_string + ",\"host\":\"" + this->watch.hostname + "\",\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
+        string json_meta = "{\"shipped_at\":" + get_timestamp() + ",\"host\":\"" + this->watch.hostname + "\",\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
 
 
         //unstructured single-line log entry
@@ -493,16 +472,11 @@ namespace logport{
 
             }
 
-
-
         //embedded single-line JSON
-            if( filtered_log_line[0] == '{' && log_length >= 4 ){
+            if( filtered_log_line[0] == '{' ){
 
                 //this embedded single-line JSON MUST begin and end with a brace
-
-                string removed_braces = filtered_log_line.substr( 1, log_length - 2 );
-
-                filtered_log_line = json_meta + ",\"log_obj\":" + removed_braces + "}";
+                filtered_log_line = json_meta + ",\"log_obj\":" + filtered_log_line + "}";
                 return filtered_log_line;
 
             }

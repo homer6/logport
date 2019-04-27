@@ -12,6 +12,7 @@ set( LOGPORT_SOURCES
     src/Database.cc
     src/Common.cc
     src/Platform.cc
+    src/Observer.cc
     src/Inspector.cc
     src/PreparedStatement.cc
     src/LogPort.cc

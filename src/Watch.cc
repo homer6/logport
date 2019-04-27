@@ -1,8 +1,9 @@
 #include "Watch.h"
+
 #include "PreparedStatement.h"
 #include "Database.h"
 #include "Common.h"
-
+#include "Observer.h"
 
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
@@ -118,7 +119,7 @@ namespace logport{
 
 
 
-    pid_t Watch::start( std::ofstream& log_file ){
+    pid_t Watch::start( Observer& observer ){
 
         pid_t pid = fork();
 
@@ -126,13 +127,13 @@ namespace logport{
 
             //child
 
-            log_file << "Starting watch: " << this->watched_filepath << endl;
+            observer.addLogEntry( "Starting watch: " + this->watched_filepath );
 
             Database db;
 
             KafkaProducer kafka_producer( this->brokers, this->topic, this->undelivered_log_filepath );  
 
-            InotifyWatcher watcher( db, kafka_producer, *this, log_file );  //expects undelivered log to exist
+            InotifyWatcher watcher( db, kafka_producer, *this, observer );  //expects undelivered log to exist
             inotify_watcher_ptr = &watcher;
 
             //register signal handler
@@ -141,9 +142,11 @@ namespace logport{
             try{
                  watcher.startWatching(); //main loop; blocks
             }catch( std::exception &e ){
-                 log_file << "logport: watcher.watch exception: " << e.what() << endl;
+                 observer.addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
                  exit(1);
             }
+
+            observer.addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
 
             exit(0);
 
@@ -153,9 +156,13 @@ namespace logport{
             //error
 
             if( errno ){
-                log_file << "logport: Failed to fork: " << strerror(errno) << endl;
+
+                observer.addLogEntry( "logport: Failed to fork: errno: " + logport::to_string<int>(errno) );
+
             }else{
-                log_file << "logport: Failed to fork."<< endl;
+
+                observer.addLogEntry( "logport: Failed to fork." );
+
             }
             this->pid = -1;
 
@@ -165,7 +172,7 @@ namespace logport{
             //parent
 
             //returns the pid of the child
-            log_file << "logport: Started watch (PID: " << pid << ")" << endl;
+            observer.addLogEntry( "logport: Started watch (PID: " + logport::to_string<pid_t>(pid) + ")" );
 
             this->pid = pid;
 
@@ -183,28 +190,33 @@ namespace logport{
 
 
 
-    void Watch::stop( std::ofstream& log_file ){
+    void Watch::stop( Observer& observer ){
 
         int status;
 
+        //observer.addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
+
+
         //terminate gracefully first, then forcefully if graceful shutdown lasts longer than 20s
         if( kill(this->pid, SIGINT) == -1 ){
-            log_file << "logport: failed to kill watch with SIGINT." << endl;
+            observer.addLogEntry( "logport: failed to kill watch with SIGINT." );
             return;
         }
-        log_file << "logport: attempting graceful watch shutdown..." << endl;
+        
+        observer.addLogEntry( "logport: attempting graceful watch shutdown..." );
+
         sleep(20);
         
         //this waitpid will clear the /proc/PID filesystem record
         pid_t child_pid2 = waitpid(-1, &status, WUNTRACED | WNOHANG );
-        log_file << "logport: child_pid2: " << child_pid2 << endl;
+        observer.addLogEntry( "logport: child_pid2: " + logport::to_string<pid_t>(child_pid2) );
         sleep(2);
 
         //watch does not respond to SIGINT in certain conditions
                             
             //check to see if this->pid is still running
             int getpgid_result = getpgid(this->pid);
-            log_file << "logport: getpgid_result: " << getpgid_result << endl;
+            observer.addLogEntry( "logport: getpgid_result: " + logport::to_string<int>(getpgid_result) );
             bool watch_still_running = true;
             if( getpgid_result == -1 ){
                 watch_still_running = false;
@@ -215,20 +227,20 @@ namespace logport{
 
                 //verify the process name before killing SIGKILL
                 const string verified_process_name = proc_status_get_name( this->pid );
-                log_file << "logport: verified process name: " << verified_process_name << endl;
+                observer.addLogEntry( "logport: verified process name: " + verified_process_name );
 
                 if( verified_process_name == "logport" ){
-                    log_file << "logport: watch PID " << this->pid << " has required a forceful exit." << endl;
+                    observer.addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " required a forceful exit." );
                     if( kill(this->pid, SIGKILL) == -1 ){
-                        log_file << "logport: failed to kill watch " << this->pid << " with SIGKILL." << endl;
+                        observer.addLogEntry( "logport: failed to kill watch " + logport::to_string<pid_t>(this->pid) + " with SIGKILL." );
                     }
                 }else{
-                    log_file << "logport: same PID found, but different program name." << endl;
+                    observer.addLogEntry( "logport: same PID found, but different program name." );
                 }
 
             }else{
 
-                log_file << "logport: watch PID " << this->pid << " has exited gracefully." << endl;
+                observer.addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " has exited gracefully." );
 
             }
 

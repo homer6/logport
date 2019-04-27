@@ -7,6 +7,7 @@ using std::string;
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <sstream>
 
 
 namespace logport{
@@ -24,6 +25,8 @@ namespace logport{
 	string escape_to_json_string( const string& unescaped_string );
 
 
+	//format: 1556311722.644052770
+	string get_timestamp();
 
 
 	// resource usage
@@ -37,6 +40,14 @@ namespace logport{
 
     string get_hostname();
 
+
+
+    template<class T> 
+    string to_string( T input ){
+		std::ostringstream stringstream;
+		stringstream << input;
+		return stringstream.str();
+    };
 
 
 }

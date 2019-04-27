@@ -21,6 +21,8 @@
 
 #include <cstring>
 
+#include <sys/time.h>
+
 
 namespace logport{
 
@@ -113,7 +115,24 @@ namespace logport{
     }
 
 
+    string get_timestamp(){
 
+        //get timestamp (nanoseconds)
+        string current_time_string = "0.0";
+        timespec current_time;
+        if( clock_gettime(CLOCK_REALTIME, &current_time) == 0 ){
+
+            char buffer[50];
+
+            // thanks to https://stackoverflow.com/a/8304728/278976
+            sprintf( buffer, "%lld.%.9ld", (long long)current_time.tv_sec, current_time.tv_nsec );
+            current_time_string = string(buffer);
+
+        }
+
+        return current_time_string;
+
+    }
 
 
 	static int parse_int_kb_line(char* line){

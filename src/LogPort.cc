@@ -52,7 +52,7 @@ static void signal_handler_stop( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), inspector(NULL), run(true), current_version("0.1.0"), pid_filename("/var/run/logport.pid")
+		:db(NULL), inspector(NULL), observer(NULL), run(true), current_version("0.1.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
 	{
 
 
@@ -68,6 +68,10 @@ namespace logport{
 			delete this->inspector;
 		}
 
+		if( this->observer != NULL ){
+			delete this->observer;
+		}
+
 	}
 
 
@@ -77,6 +81,16 @@ namespace logport{
 		if( this->db != NULL ){
 			delete this->db;
 			this->db = NULL;
+		}
+
+	}
+
+
+	void LogPort::closeObserver(){
+
+		if( this->observer != NULL ){
+			delete this->observer;
+			this->observer = NULL;
 		}
 
 	}
@@ -111,6 +125,9 @@ namespace logport{
 				if( !database_exists ){
 					db.createDatabase();
 				}
+
+				Observer observer;  //create all of the log files
+
 			}//explicitly closes the db so we can chmod it
 
 			execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
@@ -142,9 +159,8 @@ namespace logport{
 		this->stop();
 		this->disable();
 		execute_command( "rm /etc/init.d/logport" );
-
 		execute_command( "rm /usr/local/logport/logport.db" );
-		execute_command( "rmdir /usr/local/logport" );
+		execute_command( "rm -rf /usr/local/logport" );
 
 		cout << "Run these commands to finalize the uninstall:" << endl;
 		cout << "rm /usr/local/lib/logport/librdkafka.so.1" << endl;
@@ -162,9 +178,14 @@ namespace logport{
 			this->stop();
 		}	
 		
-		execute_command( "rm -f /usr/local/logport/logport.db" );
-		execute_command( "rm -f /usr/local/logport/logport.log" );
+		execute_command( "rm -rf /usr/local/logport" );
+		execute_command( "mkdir -p /usr/local/logport" );
+		execute_command( "chmod 777 /usr/local/logport" );
 
+		{
+			Observer observer; //create all of the log files
+		}
+		
 		this->restoreToFactoryDefault();
 
 		if( is_running ){
@@ -1225,12 +1246,23 @@ namespace logport{
 	}
 
 
+	Observer& LogPort::getObserver(){
+
+		if( this->observer == NULL ){
+			this->observer = new Observer();
+		}
+
+		return *this->observer;
+
+	}
+
+
 
 	void LogPort::startWatches(){
 
-		std::ofstream log_file;
-		log_file.open( "/usr/local/logport/logport.log", std::ios::out | std::ios::app );
-		log_file << "logport: started" << endl;
+		Observer& observer = this->getObserver();
+
+		observer.addLogEntry( "logport: started" );
 
 
 		vector<Watch> watches;
@@ -1240,20 +1272,17 @@ namespace logport{
 			watches = db.getWatches();
 		}
 
-
-		sleep(3);
-
 		 
 		if( watches.size() == 0 ){
 
-			log_file << "Started logport service with no files being watched." << endl;
+			observer.addLogEntry( "Started logport service with no files being watched." );
 
 		}else{
 
 			for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
 				Watch& watch = *it;
 				//this forks for each watch
-				watch.start( log_file );
+				watch.start( observer );
 			}
 
 		}
@@ -1271,7 +1300,8 @@ namespace logport{
 
 			if( child_pid == -1 ){
 				//error, or no child processes
-				log_file << "logport: waitpid() error or no watches present. " << strerror(errno) << endl;
+                observer.addLogEntry( "logport: waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
+
 				sleep(60);
 			}
 
@@ -1290,23 +1320,26 @@ namespace logport{
 						int watch_process_rss = proc_status_get_rss_usage_in_kb( watch.pid );
 						const string process_name = proc_status_get_name( watch.pid );
 
-						log_file << "logport: watch process_name(" << process_name << "), RSS(" << watch_process_rss << "KB), PID(" << watch.pid << ")" << endl;
+						observer.addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + ")" );
 
 						if( watch_process_rss > 250000 ){ //250MB
 							//kill -9
 							//wait
 							//respawn
-							log_file << "logport: watch (pid: " << watch.pid << ", file: " << watch.watched_filepath << ") was killed because the RSS exceeded 250MB." << endl;
+
+							observer.addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the RSS exceeded 250MB." );
 
 							watch.last_pid = watch.pid;
 
-							watch.stop( log_file );
+							watch.stop( observer );
 
 							sleep(5);
 							
-							watch.start( log_file );
+							watch.start( observer );
 							if( watch.last_pid == watch.pid ){
-								log_file << "logport: watch was killed and the new process has the same PID. Exiting." << endl;
+
+								observer.addLogEntry( "logport: watch was killed and the new process has the same PID. Exiting." );
+
 							}
 
 							sleep(5);
@@ -1333,7 +1366,7 @@ namespace logport{
 				if( child_pid == watch.last_pid ){
 					//we just killed this process; ignore that it died
 					watch.last_pid = -1;
-					cout << "logport: Notified of last PID." << endl;
+					observer.addLogEntry( "logport: Notified of last PID." );
 					just_killed = true;
 				}
 
@@ -1360,35 +1393,42 @@ namespace logport{
 				// restart, if necessary
 				if( WIFEXITED(status) ){
 
-					log_file << "logport: PID (" << child_pid << ") exited with status " << WEXITSTATUS(status) << endl;
-					log_file << "restarting..." << endl;
+					int exit_status = WEXITSTATUS(status);
+					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") exited with status " + logport::to_string<int>(exit_status) );
+					observer.addLogEntry( "restarting..." );
 
 					if( current_watch != NULL ){
 						current_watch->last_pid = child_pid;
-						current_watch->start( log_file );
+						current_watch->start( observer );
 					}
+
 
 				}else if( WIFSIGNALED(status) ){
 
-					log_file << "logport: PID (" << child_pid << ") killed by signal: " << WTERMSIG(status) << endl;
-					log_file << "restarting..." << endl;
+					int signal_number = WTERMSIG(status);
+					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") killed by signal " + logport::to_string<int>(signal_number) );
+					observer.addLogEntry( "restarting..." );
 
 					if( current_watch != NULL ){
 						current_watch->last_pid = child_pid;
-						current_watch->start( log_file );
+						current_watch->start( observer );
 					}
+
 
 				}else if( WIFSTOPPED(status) ){
 
-					log_file << "logport: PID (" << child_pid << ") stopped by signal: " << WSTOPSIG(status) << endl;
+					int signal_number = WSTOPSIG(status);
+					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") stopped by signal " + logport::to_string<int>(signal_number) );
+
 
 				}else if( WIFCONTINUED(status) ){
 
-					log_file << "logport: PID (" << child_pid << ") continued: " << endl;
+					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") continued" );
+
 
 				}else{
 
-					log_file << "logport: PID (" << child_pid << ") unknown return from waitpid: " << status << endl;
+					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") unknown return from waitpid " + logport::to_string<int>(status) );
 
 				}
 
