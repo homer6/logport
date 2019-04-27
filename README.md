@@ -10,7 +10,8 @@ Logport watches log files and sends changes to kafka (one line per message).
 - Automatically restarts watches if killed or on failure.
 - Parent process monitors separate child processes and shuts them down if they exceed 256MB memory.
 - Optionally collects system telemetry at configurable intervals.
-
+- Integrated product codes for ease of adoption in enterprise settings.
+- You can easily modify the code to filter or scrub data before it's sent to kafka.
 
 ## Requirements
 - ubuntu 18 or OEL 5.11 ( please open an issue if you'd like support for your platform )
@@ -37,47 +38,55 @@ rm librdkafka.so.1
 rm logport
 
 # Add some files to watch (specify many here and/or with a pattern)
-logport watch --brokers kafka1:9092,kafka2:9092,kafka3:9092 --topic my_system_logs_topic /var/log/syslog /var/log/*.log
+logport watch --brokers kafka1:9092,kafka2:9092,kafka3:9092 --topic my_system_logs_topic --product-code prd4096 /var/log/syslog /var/log/*.log
+logport watch --brokers localhost --topic new_topic --product-code prd1024 --hostname secret.host sample.log
 
 # Check which files are being watched
 logport watches
 
- watch_id | watched_filepath               | brokers                             | topic                | file_offset_sent
----------------------------------------------------------------------------------------------------------------------------
-        1 | /var/log/syslog                | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        2 | /var/log/alternatives.log      | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        3 | /var/log/apport.log            | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        4 | /var/log/auth.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        5 | /var/log/bootstrap.log         | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        6 | /var/log/cloud-init.log        | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        7 | /var/log/cloud-init-output.log | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        8 | /var/log/dpkg.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
-        9 | /var/log/kern.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic |                0
+ watch_id | watched_filepath               | brokers                             | topic                | product_code | hostname           | file_offset_sent | pid
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        1 | /var/log/syslog                | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        2 | /var/log/alternatives.log      | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        3 | /var/log/apport.log            | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        4 | /var/log/auth.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        5 | /var/log/bootstrap.log         | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        6 | /var/log/cloud-init.log        | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        7 | /var/log/cloud-init-output.log | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        8 | /var/log/dpkg.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+        9 | /var/log/kern.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
+       10 | /home/user/logport/sample.log  | localhost                           | new_topic            | prd1024      | secret.host        |                0 |  -1
 ```
 
 
 ## logport format
 
-Logport expects either unstructured log lines or single-line JSON. 
+Logport expects either unstructured single-line log lines or single-line JSON. 
 
-If logport detects a left brace character `{` as the first character, it will embed the provided single-line 
-JSON in the top-level of the JSON produced by logport. This embedded JSON must begin and end with braces.
+If logport detects a left brace character `{` as the first character, it add the log
+entry to the `log_obj` JSON key.
 
-If logport does not detect a left brace, it will assume it to be single-line unstructured text and will 
-escape the unstructured text to be embedded in the JSON produced by logport.
+If logport does not detect a left brace, it will assume it to be single-line unstructured 
+text and will escape the unstructured text to be embedded in the JSON produced by logport
+(which is at the `log` JSON key).
 
 ### Unstructured Example
 
 Unstructured Original Line: `my unstructured original log line abc123`
 
-Unstructured Kafka Message: `{"@timestamp":1555955180.385583,"log":"my unstructured original log line abc123"}`
+Unstructured Kafka Message: `{"shipped_at":1555955180.385583,"log":"my unstructured original log line abc123"}`
 
 ### Embedded JSON Example
 
 JSON Original Line: `{"my":"custom","json":"object"}`
 
-JSON Kafka Message: `{"@timestamp":1555955180.385583,"my":"custom","json":"object"}`
+JSON Kafka Message: `{"shipped_at":1555955180.385583,"log_obj":{"my":"custom","json":"object"}}`
 
+### Additional Fields
+
+In both of the above cases, logport will include the additional fields of `host`, `source`, and `prd` (product code).
+
+`{"shipped_at":1556352653.816769412,"host":"my.sample.hostname","source":"/usr/local/logport/logport.log","prd":"prd4096","log":"hello world"}`
 
 
 ## logport --help
