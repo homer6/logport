@@ -1,6 +1,16 @@
 # logport
 
-Logport watches a log file for changes and lines to kafka (one line per message).
+Logport watches log files and sends changes to kafka (one line per message).
+
+## Features
+- Built with C++98 to support much older kernels and libc (but forward compatible too).
+- Saves unsuccessful messages and replays them to ensure that no messages are lost.
+- Saves successful offsets to prevent replaying sent log entries.
+- Fast, efficient, and stable (~15k msg/s and 4.5MB of memory consumed).
+- Automatically restarts watches if killed or on failure.
+- Parent process monitors separate child processes and shuts them down if they exceed 256MB memory.
+- Optionally collects system telemetry at configurable intervals.
+
 
 ## Requirements
 - ubuntu 18 or OEL 5.11 ( please open an issue if you'd like support for your platform )
