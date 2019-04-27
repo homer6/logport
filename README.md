@@ -30,7 +30,7 @@ wget -O librdkafka.so.1 https://github.com/homer6/logport/blob/master/build/libr
 wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
 chmod ugo+x logport
 
-# Install, start, and enable the service.
+# Install the application
 sudo ./logport install
 
 # Delete the downloaded files (optional)
@@ -38,6 +38,7 @@ rm librdkafka.so.1
 rm logport
 
 # Add some files to watch (specify many here and/or with a pattern)
+# Files may be relative, absolute, or symlinks (they'll all resolve to absolute paths).
 logport watch --brokers kafka1:9092,kafka2:9092,kafka3:9092 --topic my_system_logs_topic --product-code prd4096 /var/log/syslog /var/log/*.log
 logport watch --brokers localhost --topic new_topic --product-code prd1024 --hostname secret.host sample.log
 
@@ -56,6 +57,28 @@ logport watches
         8 | /var/log/dpkg.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
         9 | /var/log/kern.log              | kafka1:9092,kafka2:9092,kafka3:9092 | my_system_logs_topic | prd123       | my.sample.hostname |                0 |  -1
        10 | /home/user/logport/sample.log  | localhost                           | new_topic            | prd1024      | secret.host        |                0 |  -1
+
+# Before adding watches, you can specify brokers, topic, product code, or hostname 
+# default settings (so you don't have a provide them to each watch). However, hostname
+# itself defaults to the system's hostname. Adding it as a setting just overrides it.
+logport set default.brokers 192.168.1.91
+logport set default.topic my_logs
+logport set default.product_code prd4096
+logport set default.hostname my.sample.hostname
+
+# If we want to ship logport's own logs, we can add them to be watched, too.
+# By not providing the watch parameters here, we'll be using the default settings
+# that we just established.
+logport watch /usr/local/logport/*.log
+
+# Enable the service on boot
+logport enable
+
+# Start the service
+logport start
+
+# Watch the logs with kafkacat
+kafkacat -C -b 192.168.1.91 -t my_logs
 ```
 
 
