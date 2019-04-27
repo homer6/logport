@@ -3,6 +3,7 @@
 Logport watches log files and sends changes to kafka (one line per message).
 
 ## Features
+- One dependency (librdkafka). Builds for both librdkafka and logport provided.
 - Built with C++98 to support much older kernels and libc (but forward compatible too).
 - Saves unsuccessful messages and replays them to ensure that no messages are lost.
 - Saves successful offsets to prevent replaying sent log entries.
