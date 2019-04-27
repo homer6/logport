@@ -41,7 +41,6 @@ using std::map;
 
 
 static logport::LogPort* logport_app_ptr;
-//static logport::Observer* observer_ptr;
 
 static void signal_handler_stop( int sig ){
     
@@ -285,12 +284,12 @@ namespace logport{
 			input_pid_file >> pid;
 
 			cout << "Stopping logport - PID: " << pid << "... " << std::flush;
-			killpg( pid, SIGTERM );
+			kill( pid, SIGTERM );
 			cout << "stopped." << endl;
 
 		}else{
 
-			cout << "Service was not running." << endl;
+			cout << "The logport service was not running." << endl;
 
 		}
 
@@ -317,7 +316,30 @@ namespace logport{
 
 	void LogPort::reload(){
 
-		cout << "reload is not implemented yet" << endl;
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
+
+		if( input_pid_file ){
+			pid_t logport_pid;
+			input_pid_file >> logport_pid;
+			kill( logport_pid, SIGHUP );
+			cout << "The logport service is running (PID: " << logport_pid << ") and was signaled to reload its configuration." << endl;
+		}else{
+			cout << "The logport service is not running." << endl;
+		}
+
+	}
+
+
+	void LogPort::reloadIfRunning(){
+
+		std::ifstream input_pid_file( this->pid_filename.c_str(), std::ifstream::binary );
+
+		if( input_pid_file ){
+			//service is running
+			pid_t logport_pid;
+			input_pid_file >> logport_pid;
+			kill( logport_pid, SIGHUP );
+		}
 
 	}
 
@@ -330,9 +352,9 @@ namespace logport{
 		if( input_pid_file ){
 			pid_t logport_pid;
 			input_pid_file >> logport_pid;
-			cout << "logport service is running (PID: " << logport_pid << ")" << endl;
+			cout << "The logport service is running (PID: " << logport_pid << ")." << endl;
 		}else{
-			cout << "logport service is not running." << endl;
+			cout << "The logport service is not running." << endl;
 		}
 
 	}
@@ -540,14 +562,6 @@ namespace logport{
     		int number_of_added_watches = 0;
 
 
-    		// stop the service, if it's running, to modify the watches
-	    		bool is_running = this->isRunning();
-
-		    	if( is_running ){
-					this->stop();
-				}
-			
-
     		while( current_argument_offset < argc ){
 
     			string current_argument = this->command_line_arguments[ current_argument_offset ];
@@ -653,10 +667,8 @@ namespace logport{
     		}
 
 
-    		// restart the service, if it was running
-	    		if( is_running ){
-					this->start();
-				}
+    		// launch the watches if the service is running
+			this->reloadIfRunning();
 
 			cout << "Added " << number_of_added_watches << " watches." << endl;
 
@@ -1354,6 +1366,29 @@ namespace logport{
 					}
 
 				}
+
+
+			//determine if some watches should startup (if reload is required)
+				if( this->reload_required == true && this->run == true && shutdown_complete == false && have_initiated_all_stop == false ){
+
+					//reload from db
+					{
+						Database db;
+						watches = db.getWatches();
+					}
+
+					for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
+						Watch& watch = *it;
+						if( watch.pid < 0 ){
+							//not running watch; let's start it
+							watch.start( observer );
+						}
+					}
+
+					this->reload_required = false;
+
+				}
+
 
 
 			if( child_pid == -1 ){

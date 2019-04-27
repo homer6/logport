@@ -40,6 +40,7 @@ namespace logport{
 	        void stop();
 	        void restart();
 	        void reload();
+	        void reloadIfRunning();
 	        void status();
 
 	        bool isRunning();
