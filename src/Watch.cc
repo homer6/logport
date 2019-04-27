@@ -29,9 +29,22 @@ using std::endl;
 
 static logport::InotifyWatcher* inotify_watcher_ptr;
 
-static void signal_handler_stop( int /*sig*/ ){
+static void signal_handler_stop( int sig ){
+    
     inotify_watcher_ptr->run = false;
+
+    logport::Observer observer;
+
+    switch( sig ){
+        case SIGINT: observer.addLogEntry( "logport: Watch received SIGINT. Shutting down." ); break;
+        case SIGTERM: observer.addLogEntry( "logport: Watch received SIGTERM. Shutting down." ); break;
+        default: observer.addLogEntry( "logport: Watch received unknown. Shutting down." );
+    };
+    
 }
+
+
+
 
 
 namespace logport{
@@ -129,26 +142,32 @@ namespace logport{
 
             observer.addLogEntry( "Starting watch: " + this->watched_filepath );
 
-            Database db;
+            int exit_code = 0;
 
-            KafkaProducer kafka_producer( this->brokers, this->topic, this->undelivered_log_filepath );  
+            {
+                Database db;
 
-            InotifyWatcher watcher( db, kafka_producer, *this, observer );  //expects undelivered log to exist
-            inotify_watcher_ptr = &watcher;
+                KafkaProducer kafka_producer( this->brokers, this->topic, this->undelivered_log_filepath );  
 
-            //register signal handler
-            signal( SIGINT, signal_handler_stop );
+                InotifyWatcher watcher( db, kafka_producer, *this, observer );  //expects undelivered log to exist
+                inotify_watcher_ptr = &watcher;
 
-            try{
-                 watcher.startWatching(); //main loop; blocks
-            }catch( std::exception &e ){
-                 observer.addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
-                 exit(1);
+                //register signal handler
+                signal( SIGINT, signal_handler_stop );
+                signal( SIGTERM, signal_handler_stop );
+
+                try{
+                     watcher.startWatching(); //main loop; blocks
+                     observer.addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
+                     exit_code = 0;
+                }catch( std::exception &e ){
+                     observer.addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
+                     exit_code = 1;
+                }
             }
-
-            observer.addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
-
-            exit(0);
+            
+            //exit must be called after the kafka_producer destructs (and not before)
+            exit(exit_code);
 
 
         }else if( pid == -1 ){
@@ -205,12 +224,14 @@ namespace logport{
         
         observer.addLogEntry( "logport: attempting graceful watch shutdown..." );
 
-        sleep(20);
+        //sleep(20);
+        sleep(7);
         
         //this waitpid will clear the /proc/PID filesystem record
         pid_t child_pid2 = waitpid(-1, &status, WUNTRACED | WNOHANG );
         observer.addLogEntry( "logport: child_pid2: " + logport::to_string<pid_t>(child_pid2) );
-        sleep(2);
+        //sleep(2);
+        sleep(1);
 
         //watch does not respond to SIGINT in certain conditions
                             
@@ -244,7 +265,7 @@ namespace logport{
 
             }
 
-
+       
 
     }
 

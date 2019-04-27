@@ -34,7 +34,7 @@ namespace logport{
             Database& db;
 
         public:
-            int run;
+            bool run;
 
         protected:
             string watched_file;

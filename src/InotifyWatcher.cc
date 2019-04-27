@@ -73,7 +73,7 @@ namespace logport{
 
 
     InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, Observer& observer )
-        :db(db), run(1), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), observer(observer)
+        :db(db), run(true), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), observer(observer)
     {
 
         /* Create inotify instance; add watch descriptors */
@@ -201,7 +201,7 @@ namespace logport{
                         throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
                     }
 
-                    printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
+                    //printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
 
 
                 //process all of the inotify events

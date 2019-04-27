@@ -90,6 +90,10 @@ namespace logport{
 	    	void startWatches();  //main loop (blocks)
 
 
+	    	//this will wait for 60 seconds; but, it'll check to see if there's an event every second
+	    	void waitUnlessEvent( int seconds );
+
+
 
 	    private:
 	    	Database *db;
@@ -98,6 +102,7 @@ namespace logport{
 
 	    public:
 	     	bool run;
+	     	bool reload_required;
 	     	string command;
 	     	vector<string> command_line_arguments;
 	     	string current_version;
@@ -106,6 +111,7 @@ namespace logport{
 	     	string pid_filename;
 
 	     	bool verbose_mode;
+
 	     	
 
 	};

@@ -1,5 +1,6 @@
 #include "KafkaProducer.h"
 
+#include "Observer.h"
 
 
 /*
@@ -77,20 +78,19 @@ namespace logport{
 
         if( rkmessage->err ){
 
-            fprintf( stderr, "Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
+            //fprintf( stderr, "Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
 
             if( undelivered_log_fd_static != -1 ){
 
                 int result_bytes = write( undelivered_log_fd_static, rkmessage->payload, rkmessage->len );
 
                 if( result_bytes < 0 ){
-                    fprintf( stderr, "Failed to write to undelivered_log. errno: %d\n", errno );
+                    //fprintf( stderr, "Failed to write to undelivered_log. errno: %d\n", errno );
                 }else{
                     if( (size_t)result_bytes != rkmessage->len ){
-                        fprintf( stderr, "Write mismatch in undelivered_log. %lu bytes expected but only %lu written.\n", rkmessage->len, (size_t)result_bytes );
+                        //fprintf( stderr, "Write mismatch in undelivered_log. %lu bytes expected but only %lu written.\n", rkmessage->len, (size_t)result_bytes );
                     }
                 }
-
 
 
                 //append newline
@@ -99,19 +99,19 @@ namespace logport{
 
                     result_bytes = write( undelivered_log_fd_static, newline_buffer, 1 );
                     if( result_bytes < 0 ){
-                        fprintf( stderr, "Failed to write to undelivered_log newline. errno: %d\n", errno );
+                        //fprintf( stderr, "Failed to write to undelivered_log newline. errno: %d\n", errno );
                     }
                 
 
             }else{
 
-                fprintf( stderr, "FAILED TO RECORD UNDELIVERED MESSAGES\n" );
+                //fprintf( stderr, "FAILED TO RECORD UNDELIVERED MESSAGES\n" );
 
             }
 
         }else{
 
-            fprintf( stderr, "Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
+            //fprintf( stderr, "Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
 
         }
 
@@ -144,7 +144,7 @@ namespace logport{
             throw std::runtime_error( string("KafkaProducer: Failed to set configuration for bootstrap.servers: ") + errstr );
         }
 
-        const string message_timeout_ms = "10000"; //10 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
+        const string message_timeout_ms = "5000"; //5 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
         if( rd_kafka_conf_set(conf, "message.timeout.ms", message_timeout_ms.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
             rd_kafka_conf_destroy(conf);
             throw std::runtime_error( string("KafkaProducer: Failed to set configuration for message.timeout.ms: ") + errstr );
@@ -203,7 +203,7 @@ namespace logport{
          * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
          * waits for all messages to be delivered. */
         //fprintf(stderr, "%% Flushing final messages..\n");
-        rd_kafka_flush(this->rk, 15 * 1000 /* wait for max 15 seconds */);
+        rd_kafka_flush(this->rk, 6 * 1000 /* wait for max 6 seconds */);
         //this wait must be longer than the message.timeout.ms in the conf above or the messages will be lost and not stored in the undelivered_log
 
         /* Destroy topic object */
@@ -217,7 +217,11 @@ namespace logport{
             undelivered_log_fd_static = -1;
             close( this->undelivered_log_fd );
         }
-        
+
+        /*
+        Observer observer;
+        observer.addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );
+        */
 
     }
 
