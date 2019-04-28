@@ -696,6 +696,16 @@ namespace logport{
     		return 0;
     	}
 
+    	if( this->command == "enable" ){
+    		this->enable();
+    		return 0;
+    	}
+
+    	if( this->command == "disable" ){
+    		this->disable();
+    		return 0;
+    	}
+
     	if( this->command == "set" ){
 
     		if( argc <= 3 ){
