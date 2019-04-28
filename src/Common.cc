@@ -24,6 +24,8 @@
 #include <sys/time.h>
 
 
+
+
 namespace logport{
 
 
@@ -68,6 +70,22 @@ namespace logport{
 		std::stringstream buffer;
 		buffer << text_file.rdbuf();
 		return buffer.str();
+
+	}
+
+
+	uint64_t get_file_size( const string& filepath ){
+
+		struct stat buffer;
+
+		int stat_result = stat( filepath.c_str(), &buffer );
+
+		if( stat_result == -1 ){
+			//file does not exist
+			return 0;
+		}
+
+		return buffer.st_size;
 
 	}
 

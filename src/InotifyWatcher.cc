@@ -127,13 +127,13 @@ namespace logport{
 
 
         //set the offset to the last read position
-        off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
-        if( current_file_position == -1 ){
-            //error is seeking, reset to 0
-            this->watch.file_offset = 0;
-            Database db;
-            this->watch.saveOffset( db );
-        }
+            off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
+            if( current_file_position == -1 ){
+                //error is seeking, reset to 0
+                this->watch.file_offset = 0;
+                Database db;
+                this->watch.saveOffset( db );
+            }
 
 
         char log_read_buffer[LOG_READ_BUFFER_SIZE];
@@ -157,10 +157,13 @@ namespace logport{
 
             const string temp_log_file = undelivered_log + "_temp";
 
-            if( access( undelivered_log.c_str(), F_OK ) != -1 ) {
-                //if undelivered_log file exists
+            //return 0 if file does not exist
+            uint64_t undelivered_file_size = get_file_size( undelivered_log );
 
-                if( access( temp_log_file.c_str(), F_OK ) != -1 ) {
+            if( undelivered_file_size > 0 ){
+                //if undelivered_log file exists and is not empty
+
+                if( file_exists(temp_log_file) ){
                     //temp log file exists; abort with error
                     throw std::runtime_error( "Error: temp undelivered_log exists. Aborting to prevent overwriting." );
                 }

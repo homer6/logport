@@ -294,7 +294,7 @@ namespace logport{
 		}
 
 		cout << "Restarting..." << std::flush;
-		sleep(1);
+		sleep(6);
 
 		cout << " restarted." << endl;
 

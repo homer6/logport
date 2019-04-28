@@ -18,6 +18,8 @@ namespace logport{
 
 	string get_file_contents( const string& filepath);
 
+	uint64_t get_file_size( const string& filepath );
+
 	//gets the absolute path (resolves symlinks too)
 	string get_real_filepath( const string& relative_filepath );
 
