@@ -140,7 +140,7 @@ namespace logport{
 
             //child
 
-            observer.addLogEntry( "Starting watch: " + this->watched_filepath );
+            observer.addLogEntry( "logport: Starting watch: " + this->watched_filepath );
 
             int exit_code = 0;
 

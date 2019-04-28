@@ -20,6 +20,7 @@
 #include "LevelTriggeredEpollWatcher.h"
 
 #include "Common.h"
+#include "Observer.h"
 
 #include "Database.h"
 #include "Watch.h"
@@ -124,6 +125,17 @@ namespace logport{
             throw std::runtime_error( "Failed to open log file: errno " + string(error_string_buffer) );
         }
 
+
+        //set the offset to the last read position
+        off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
+        if( current_file_position == -1 ){
+            //error is seeking, reset to 0
+            this->watch.file_offset = 0;
+            Database db;
+            this->watch.saveOffset( db );
+        }
+
+
         char log_read_buffer[LOG_READ_BUFFER_SIZE];
 
 
@@ -183,7 +195,8 @@ namespace logport{
 
 
 
-        //listen to events
+        // Listen for events.
+        // If this->shutting_down == true (controlled by signal handler), this->run will be true
         while( this->run ){
 
             if( !startup && epoll_watcher.watch(1000) ){
@@ -254,30 +267,6 @@ namespace logport{
                     }
 
 
-                    //seek to current offset
-                        /*
-                        if( !replaying_undelivered_log ){
-
-                            //determine the filesize
-                            //off64_t end_of_file_position = lseek64( current_fd, 0, SEEK_END );
-
-                            //read the last_confirmed_sent (the last offset confirmed as received from kafka)
-                            off64_t last_confirmed_position = watch.file_offset;
-
-                            //reset the description offset to last_confirmed_position
-                            if( startup ){
-                                lseek64( current_fd, last_confirmed_position, SEEK_SET );
-                            }else{
-                                //offset cannot be beyond end of file
-                                //watch.file_offset = 0;
-                                //watch.saveOffset( this->db );
-                            }
-                            
-                        }
-                        */
-                        
-
-
                     // read the next bytes
 
                     int bytes_read = read( current_fd, log_read_buffer, LOG_READ_BUFFER_SIZE );
@@ -323,10 +312,6 @@ namespace logport{
                                         //handle consecutive newline characters (by dropping them)
                                         this->kafka_producer.produce( filtered_log_line );
                                         this->kafka_producer.poll();
-
-                                        //update and save the committed offset
-                                        //watch.file_offset += log_chunk.size();
-                                        //watch.saveOffset( this->db );
                                         
                                         //skips the new line
                                         current_message_end_it++;
@@ -386,7 +371,9 @@ namespace logport{
                                 previous_log_partial.clear();
                             }
 
-                            std::cout << "Finished replaying undelivered log." << std::endl;
+                            Observer observer;
+                            observer.addLogEntry( "logport: Finished replaying undelivered log." );
+
                         }
 
                         if( log_being_rotated ){
@@ -402,8 +389,8 @@ namespace logport{
                             }
 
                             //update and save the committed offset back to the first byte
-                            watch.file_offset = 0;
-                            watch.saveOffset( this->db );
+                            this->watch.file_offset = 0;
+                            this->watch.saveOffset( this->db );
 
                         }
 
@@ -429,7 +416,24 @@ namespace logport{
              * you register). */
             //this->kafka_producer.poll();
 
-        }
+
+
+            //save the unsent offset, if this is shutting down
+            if( this->run == false ){                
+                sleep(1);
+                this->kafka_producer.poll();
+                Database db;
+                off64_t current_file_position = lseek64( watched_file_fd, 0, SEEK_CUR );
+                this->watch.file_offset = current_file_position - previous_log_partial.size();
+                this->watch.saveOffset( db );
+
+                Observer observer;
+                observer.addLogEntry( "logport: saved " + this->watch.watched_filepath + " offset on shutdown (" + logport::to_string<off64_t>(current_file_position) + ")" );
+
+            }
+
+
+        } //end this->run
 
 
 
