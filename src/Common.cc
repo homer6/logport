@@ -23,6 +23,8 @@
 
 #include <sys/time.h>
 
+#include <sys/wait.h>
+
 
 
 
@@ -55,6 +57,36 @@ namespace logport{
 		return output;
 
 	}
+
+
+
+	string execute_command( const string& command, int& exit_code ){
+
+		// http://stackoverflow.com/questions/478898/how-to-execute-a-command-and-get-output-of-command-within-c-using-posix
+		char buffer[4096];
+
+		string output;
+
+		FILE* pipe = popen( command.c_str(), "r" );
+		if( !pipe ){
+			throw std::runtime_error( "popen() failed" );
+		}
+
+		try {
+			while( fgets(buffer, 4096, pipe) != NULL ){
+				output += buffer;
+			}
+		}catch(...){
+			exit_code = WEXITSTATUS( pclose(pipe) );
+			throw;
+		}
+		
+		exit_code = WEXITSTATUS( pclose(pipe) );
+
+		return output;
+
+	}
+
 
 
 	bool file_exists( const string& filename ){

@@ -13,6 +13,7 @@ using std::string;
 namespace logport{
 
 	string execute_command( const string& command );
+	string execute_command( const string& command, int& exit_code );
 
 	bool file_exists( const string& filename );
 
