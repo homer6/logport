@@ -77,11 +77,13 @@ namespace logport{
 				output += buffer;
 			}
 		}catch(...){
-			exit_code = WEXITSTATUS( pclose(pipe) );
+			int pclose_exit_code = pclose(pipe); 
+			exit_code = WEXITSTATUS( pclose_exit_code );
 			throw;
 		}
 		
-		exit_code = WEXITSTATUS( pclose(pipe) );
+		int pclose_exit_code = pclose(pipe); 
+		exit_code = WEXITSTATUS( pclose_exit_code );
 
 		return output;
 
