@@ -214,8 +214,6 @@ logrotate -v -f /etc/logrotate.d/sample
 ```
 
 
-# TODOs
+# Roadmap
 
- - refactor the copy out of the kafka_produce method, if possible
- - consider reducing the polling frequency
- - consider making batching configurable
+https://trello.com/b/o12As8ot/logport
