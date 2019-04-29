@@ -1,6 +1,7 @@
 #include "KafkaProducer.h"
 
 #include "Observer.h"
+#include "Common.h"
 
 
 /*
@@ -58,10 +59,12 @@
 #include <fcntl.h>
 
 
+
 namespace logport{
 
 
     static int undelivered_log_fd_static;
+    static Observer* observer_ptr;
 
     /**
      * @brief Message delivery report callback.
@@ -74,24 +77,23 @@ namespace logport{
      * The callback is triggered from rd_kafka_poll() and executes on
      * the application's thread.
      */
-    static void dr_msg_cb( rd_kafka_t */*rk*/, const rd_kafka_message_t *rkmessage, void */*opaque*/ ){
+    static void delivery_report_message_callback( rd_kafka_t */*rk*/, const rd_kafka_message_t *rkmessage, void */*opaque*/ ){
 
         if( rkmessage->err ){
 
-            //fprintf( stderr, "Message delivery failed: %s\n", rd_kafka_err2str(rkmessage->err) );
+            observer_ptr->addLogEntry( "Message delivery failed: " + string(rd_kafka_err2str(rkmessage->err)) );
 
             if( undelivered_log_fd_static != -1 ){
 
                 int result_bytes = write( undelivered_log_fd_static, rkmessage->payload, rkmessage->len );
 
                 if( result_bytes < 0 ){
-                    //fprintf( stderr, "Failed to write to undelivered_log. errno: %d\n", errno );
+                    observer_ptr->addLogEntry( "Failed to write to undelivered_log. errno: " + logport::to_string<int>(errno) );
                 }else{
                     if( (size_t)result_bytes != rkmessage->len ){
-                        //fprintf( stderr, "Write mismatch in undelivered_log. %lu bytes expected but only %lu written.\n", rkmessage->len, (size_t)result_bytes );
+                        observer_ptr->addLogEntry( "Write mismatch in undelivered_log. " + logport::to_string<size_t>(rkmessage->len) + " bytes expected but only " + logport::to_string<int>(result_bytes) + " written." );
                     }
                 }
-
 
                 //append newline
                     char newline_buffer[10];
@@ -99,19 +101,20 @@ namespace logport{
 
                     result_bytes = write( undelivered_log_fd_static, newline_buffer, 1 );
                     if( result_bytes < 0 ){
-                        //fprintf( stderr, "Failed to write to undelivered_log newline. errno: %d\n", errno );
+                        observer_ptr->addLogEntry( "Failed to write to undelivered_log newline. errno: " + logport::to_string<int>(errno) );
                     }
                 
 
             }else{
 
-                //fprintf( stderr, "FAILED TO RECORD UNDELIVERED MESSAGES\n" );
+
+                observer_ptr->addLogEntry( "Failed to record undelivered message." );
 
             }
 
         }else{
 
-            //fprintf( stderr, "Message delivered (%zd bytes, partition %d)\n", rkmessage->len, rkmessage->partition );
+            //message successfully delivered
 
         }
 
@@ -123,11 +126,12 @@ namespace logport{
 
 
 
-    KafkaProducer::KafkaProducer( const string &brokers_list, const string &topic, const string &undelivered_log )
-            :brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
+    KafkaProducer::KafkaProducer( Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log )
+        :observer(observer), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
     {
 
         undelivered_log_fd_static = -1;
+        observer_ptr = &observer;
 
         /*
          * Create Kafka client configuration place-holder
@@ -162,7 +166,7 @@ namespace logport{
          * This callback will be called once per message to inform
          * the application if delivery succeeded or failed.
          * See dr_msg_cb() above. */
-        rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
+        rd_kafka_conf_set_dr_msg_cb(conf, delivery_report_message_callback);
 
 
         /*
@@ -174,7 +178,6 @@ namespace logport{
          */
         this->rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
         if( !this->rk ){
-            //fprintf( stderr, "%% Failed to create new producer: %s\n", errstr );
             throw std::runtime_error( string("KafkaProducer: Failed to create new producer: ") + rd_kafka_err2str(rd_kafka_last_error()) );
         }
 
@@ -187,7 +190,6 @@ namespace logport{
          */
         this->rkt = rd_kafka_topic_new( this->rk, topic.c_str(), NULL );
         if( !this->rkt ){
-            //fprintf( stderr, "%% Failed to create topic object: %s\n", rd_kafka_err2str(rd_kafka_last_error()) );
             rd_kafka_destroy(this->rk);
             throw std::runtime_error( string("KafkaProducer: Failed to create topic object: ") + rd_kafka_err2str(rd_kafka_last_error()) );
         }
@@ -202,7 +204,8 @@ namespace logport{
         /* Wait for final messages to be delivered or fail.
          * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
          * waits for all messages to be delivered. */
-        //fprintf(stderr, "%% Flushing final messages..\n");
+        this->observer.addLogEntry( "Flushing final kafka messages." );
+
         rd_kafka_flush(this->rk, 6 * 1000 /* wait for max 6 seconds */);
         //this wait must be longer than the message.timeout.ms in the conf above or the messages will be lost and not stored in the undelivered_log
 
@@ -218,10 +221,7 @@ namespace logport{
             close( this->undelivered_log_fd );
         }
 
-        /*
-        Observer observer;
-        observer.addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );
-        */
+        this->observer.addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );
 
     }
 
@@ -356,10 +356,8 @@ namespace logport{
                 /**
                  * Failed to *enqueue* message for producing.
                  */
-                fprintf(stderr,
-                        "%% Failed to produce to topic %s: %s\n",
-                        rd_kafka_topic_name(this->rkt),
-                        rd_kafka_err2str(rd_kafka_last_error()));
+
+                this->observer.addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
 
                 /* Poll to handle delivery reports */
                 if (rd_kafka_last_error() ==
@@ -383,8 +381,6 @@ namespace logport{
         } else {
 
             //successfully queued message
-
-            //fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt) );
 
         }
 
@@ -429,5 +425,6 @@ namespace logport{
         this->undelivered_log_open = true;
 
     }
+
 
 }

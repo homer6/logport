@@ -79,7 +79,7 @@ logport enable
 logport start
 
 # Watch the logs with kafkacat
-kafkacat -C -b 192.168.1.91 -t my_logs
+kafkacat -C -b 192.168.1.91 -o -10 -t my_logs
 ```
 
 
@@ -204,15 +204,16 @@ root@node-1w7jr9qh6y35wr9tbc3ipkal4:/etc/logrotate.d# cat sample
         notifempty
         compress
 }
-
 ```
+
+Warning: ensure that the parent directory, which contains the log file above, does not have writable permissions for 'others'.
+Eg. `chmod o-w /home/user/logport`
 
 ## Logrotate Testing Example
 
 ```
 logrotate -v -f /etc/logrotate.d/sample
 ```
-
 
 # Roadmap
 

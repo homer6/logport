@@ -8,10 +8,17 @@ using std::string;
 
 namespace logport{
 
+    class Observer;
+
+
+    /*
+        Produces messages to kafka.
+        You can only safely have one KafkaProducer instantiated due to the static variables.
+    */
     class KafkaProducer{
 
         public:
-            KafkaProducer( const string &brokers_list, const string &topic, const string &undelivered_log );
+            KafkaProducer( Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log );
             ~KafkaProducer();
 
             void produce( const string& message ); //throws on failure
@@ -26,6 +33,8 @@ namespace logport{
             void poll( int timeout_ms = 0 );
 
         protected:
+            Observer& observer;
+
             string brokers_list;
             string topic;
 
