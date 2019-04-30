@@ -24,6 +24,27 @@ Logport watches log files and sends changes to kafka (one line per message).
 ## Dependencies
 - rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.o/en/latest/installation_librdkafka.html or see OEL511.compile)
 
+## Quickstart
+
+```
+wget -O librdkafka.so.1 https://github.com/homer6/logport/blob/master/build/librdkafka.so.1?raw=true
+wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
+chmod ugo+x logport
+sudo ./logport install
+rm librdkafka.so.1
+rm logport
+logport set default.brokers 192.168.1.91
+logport set default.topic my_logs
+logport set default.product_code prd4096
+logport set default.hostname my.sample.hostname
+logport watch /usr/local/logport/*.log /var/log/syslog
+logport watches
+logport start
+ps aux | grep logport
+logport watches
+```
+
+
 ## Installing, running as a service, and adding files to watch
 ```
 # download the installer/service/agent (all three in 1 binary)

@@ -87,6 +87,7 @@ namespace logport{
 
 	    protected:
 	    	void installInitScript();
+	    	void installLogrotate();
 
 	    	void startWatches();  //main loop (blocks)
 

@@ -126,6 +126,7 @@ namespace logport{
 
 	void LogPort::install(){
 
+
 		this->current_platform.determinePlatform();
 
 		execute_command( "mkdir -p /usr/local/lib/logport" );
@@ -150,6 +151,10 @@ namespace logport{
 			execute_command( "chmod ugo+w /usr/local/logport/logport.db" );
 		
 		this->installInitScript();
+
+		this->installLogrotate();
+		execute_command( "chmod o-w /usr/local/logport" );
+
 		execute_command( "cp librdkafka.so.1 /usr/local/lib/logport" );
 
 		cout << "Logport installed as a system service." << endl;
@@ -178,6 +183,8 @@ namespace logport{
 		execute_command( "rm /etc/init.d/logport" );
 		execute_command( "rm /usr/local/logport/logport.db" );
 		execute_command( "rm -rf /usr/local/logport" );
+
+		execute_command( "rm -f /etc/logrotate.d/logport" );
 
 		cout << "Run these commands to finalize the uninstall:" << endl;
 		cout << "rm /usr/local/lib/logport/librdkafka.so.1" << endl;
@@ -1260,6 +1267,28 @@ namespace logport{
 		init_d_file.close();
 
 		execute_command( "chmod ugo+x /etc/init.d/logport" );
+
+	}
+
+
+
+	void LogPort::installLogrotate(){
+
+		const char *logrotate_file_contents = 
+"/usr/local/logport/*.log\n"
+"{"
+"        rotate 7\n"
+"        daily\n"
+"        delaycompress\n"
+"        missingok\n"
+"        notifempty\n"
+"        compress\n"
+"}\n";
+
+		std::ofstream init_d_file;
+		init_d_file.open( "/etc/logrotate.d/logport" );
+		init_d_file << logrotate_file_contents;
+		init_d_file.close();
 
 	}
 
