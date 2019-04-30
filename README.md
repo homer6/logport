@@ -22,7 +22,7 @@ Logport watches log files and sends changes to kafka (one line per message).
 - /usr/local/logport/logport.db must not be on an NFS mount
 
 ## Dependencies
-- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.o/en/latest/installation_librdkafka.html or see OEL511.compile)
+- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
 
 ## Quickstart
 
