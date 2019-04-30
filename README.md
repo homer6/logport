@@ -33,6 +33,7 @@ chmod ugo+x logport
 sudo ./logport install
 rm librdkafka.so.1
 rm logport
+logport enable
 logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
