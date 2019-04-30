@@ -37,7 +37,7 @@ logport enable
 logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
-logport set default.hostname my.sample.hostname
+#[THIS VALUE DEFAULTS TO SYSTEM HOSTNAME -- ONLY SPECIFY TO OVERRIDE] logport set default.hostname my.sample.hostname
 logport watch /usr/local/logport/*.log /var/log/syslog
 logport watches
 logport start
@@ -174,6 +174,16 @@ Please see: https://github.com/homer6/logport to report issues
 or view documentation.
 ```
 
+## Clearing all settings and watches (factory defaults)
+```
+logport stop
+logport destroy
+```
+
+## Uninstalling
+```
+logport uninstall
+```
 
 
 ## Building
@@ -236,6 +246,7 @@ Eg. `chmod o-w /home/user/logport`
 ```
 logrotate -v -f /etc/logrotate.d/sample
 ```
+
 
 # Roadmap
 
