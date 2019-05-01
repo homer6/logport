@@ -202,7 +202,7 @@ namespace logport{
         // If this->shutting_down == true (controlled by signal handler), this->run will be true
         while( this->run ){
 
-            if( !startup && epoll_watcher.watch(1000) ){
+            if( !startup && epoll_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
                 //if there are new events waiting on the inotify_fd, read the events
                     inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
@@ -238,7 +238,7 @@ namespace logport{
                             try_read = true;
                         }
 
-                        //displayInotifyEvent(in_event);
+                        if( 0 ) displayInotifyEvent(in_event);
 
                         p += sizeof(struct inotify_event) + in_event->len;
 
@@ -249,9 +249,6 @@ namespace logport{
             }else{
 
                 //no events waiting on inotify_fd; timed out watching for 1000ms
-
-                // only serve delivery reports
-                this->kafka_producer.poll();
 
             }
 
@@ -284,7 +281,6 @@ namespace logport{
                                 previous_log_partial.clear();
                             }
 
-                        //send multiple lines (newline character delimited), if applicable (placing the trailing partial in `previous_log_partial`)
                         //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
                         //no partial line will ever be sent
                             string::iterator current_message_begin_it = log_chunk.begin();
@@ -314,7 +310,6 @@ namespace logport{
 
                                         //handle consecutive newline characters (by dropping them)
                                         this->kafka_producer.produce( filtered_log_line );
-                                        this->kafka_producer.poll();
                                         
                                         //skips the new line
                                         current_message_end_it++;
@@ -417,7 +412,7 @@ namespace logport{
              * to make sure previously produced messages have their
              * delivery report callback served (and any other callbacks
              * you register). */
-            //this->kafka_producer.poll();
+            this->kafka_producer.poll();
 
 
 
