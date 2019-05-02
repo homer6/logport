@@ -11,6 +11,7 @@ using std::endl;
 #include <signal.h>
 
 #include "InotifyWatcher.h"
+#include "LevelTriggeredEpollWatcher.h"
 #include "KafkaProducer.h"
 #include "Database.h"
 #include "PreparedStatement.h"
@@ -23,6 +24,7 @@ using std::endl;
 #include <stdio.h>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 #include "Common.h"
 
@@ -38,6 +40,8 @@ using std::endl;
 
 #include <map>
 using std::map;
+
+extern char **environ;
 
 
 static logport::LogPort* logport_app_ptr;
@@ -68,7 +72,7 @@ static void signal_handler_reload_config( int /*sig*/ ){
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), current_version("0.1.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
+		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), current_version("0.2.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
 	{
 
 
@@ -519,6 +523,25 @@ namespace logport{
 	}
 
 
+	void LogPort::printHelpAdopt(){
+
+		cerr << "Usage: logport adopt [OPTION]... [EXECUTABLE] [EXECUTABLE_ARGS]...\n"
+				"Run an executable and capture its stdout, stderr, and exit code.\n"
+				"\n"
+				"Mandatory arguments to long options are mandatory for short options too.\n"
+				"  -b, --brokers [BROKERS]             a csv list of kafka brokers\n"
+				"                                      (optional; defaults to setting: default.brokers)\n"
+				"  -t, --topic [TOPIC]                 a destination kafka topic\n"
+				"                                      (optional; defaults to setting: default.topic)\n"
+				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
+				"                                      (optional; defaults to setting: default.product_code)\n"
+				"  -h, --hostname [HOSTNAME]           the name of this host that will appear in the log entries\n"
+				"                                      (optional; defaults to setting: default.hostname)"
+		<< endl;
+
+	}
+
+
 
     int LogPort::runFromCommandLine( int argc, char **argv ){
 
@@ -552,7 +575,7 @@ namespace logport{
 		//	cout << this->command_line_arguments[x] << endl;   		
     	//}
 
-    	if( this->command == "watch" || this->command == "now" ){
+    	if( this->command == "watch" || this->command == "now" || this->command == "adopt" ){
 
     		if( argc <= 2 ){
     			this->printHelpWatch();
@@ -568,8 +591,16 @@ namespace logport{
 
     		int number_of_added_watches = 0;
 
+    		bool is_last_argument = false;
+
+
 
     		while( current_argument_offset < argc ){
+
+    			if( current_argument_offset == argc - 1 ){
+    				is_last_argument = true;
+    			}
+
 
     			string current_argument = this->command_line_arguments[ current_argument_offset ];
 
@@ -649,20 +680,47 @@ namespace logport{
 
     			}
 
-	    		Watch watch;
-	    		watch.brokers = this_brokers;
-	    		watch.topic = this_topic;
-	    		watch.product_code = this_product_code;
-	    		watch.hostname = this_hostname;
-	    		watch.watched_filepath = get_real_filepath(current_argument);
-	    		watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
 
-	    		if( this->command == "now" ){
-	    			this->watchNow( watch );	    			
-	    		}else{
-	    			this->addWatch( watch );
-	    			number_of_added_watches++;
-	    		}
+    			if( this->command == "adopt" ){
+
+    				this->additional_arguments.push_back( current_argument );
+
+    				if( is_last_argument ){
+
+						Watch watch;
+						watch.brokers = this_brokers;
+						watch.topic = this_topic;
+						watch.product_code = this_product_code;
+						watch.hostname = this_hostname;
+
+						this->adopt( watch );
+
+						return 0;
+
+    				}
+
+    			}else{
+
+					Watch watch;
+					watch.brokers = this_brokers;
+					watch.topic = this_topic;
+					watch.product_code = this_product_code;
+					watch.hostname = this_hostname;
+					watch.watched_filepath = get_real_filepath(current_argument);
+					watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
+
+		    		if( this->command == "now" ){
+		    			this->watchNow( watch );	    			
+		    		}else{
+		    			this->addWatch( watch );
+		    			number_of_added_watches++;
+		    		}
+
+    			}
+
+
+
+
 
     			current_argument_offset++;
 
@@ -1177,6 +1235,533 @@ namespace logport{
 		*/
 
 	}
+
+
+
+	#define IO_BUFFER_SIZE 4 * 1024
+
+
+	void LogPort::adopt( const Watch& watch ){
+
+
+		this->loadEnvironmentVariables();
+
+		if( this->additional_arguments.size() == 0 ){
+			this->printHelpAdopt();
+			return;
+		}
+
+		string executable = this->additional_arguments[0];
+		string process_description = executable;
+
+		vector<string> arguments;
+
+		//drop the executable from the passed arguments (first argument)
+			vector<string>::iterator it = this->additional_arguments.begin();
+			it++;
+			std::copy( it, this->additional_arguments.end(), arguments.begin() );
+
+		map<string,string> env_vars = this->environment_variables;
+
+		//process any environment variables here, if necessary
+
+		Observer& observer = this->getObserver();
+
+
+
+
+		//create pipes for stdin, stdout, and stderr
+			int child_stdin_pipe[2];
+			int child_stdout_pipe[2];
+			int child_stderr_pipe[2];
+
+			if( pipe(child_stdin_pipe) != 0 ){
+				observer.addLogEntry( "logport: failed to create stdin pipe" );
+				return;
+			}
+
+			if( pipe(child_stdout_pipe) != 0 ){
+				observer.addLogEntry( "logport: failed to create stdout pipe" );
+				return;
+			}
+
+			if( pipe(child_stderr_pipe) != 0 ){
+				observer.addLogEntry( "logport: failed to create stderr pipe" );
+				return;
+			}
+
+
+		//start the child process
+			pid_t child_process_id = this->startProcess( executable, process_description, arguments, env_vars, child_stdin_pipe, child_stdout_pipe, child_stderr_pipe );
+
+
+		if( child_process_id == -1 ){
+			observer.addLogEntry( "logport: failed to start adopted executable" );
+			return;
+		}
+
+
+		//close unused ends of the pipes
+			close( child_stdin_pipe[0] );
+			close( child_stdout_pipe[1] );
+			close( child_stderr_pipe[1] );
+
+
+		LevelTriggeredEpollWatcher stdin_watcher( STDIN_FILENO );
+		LevelTriggeredEpollWatcher child_stdout_watcher( child_stdout_pipe[0] );
+		LevelTriggeredEpollWatcher child_stderr_watcher( child_stderr_pipe[0] );
+
+		KafkaProducer kafka_producer( observer, watch.brokers, watch.topic, watch.undelivered_log_filepath );
+
+		bool continue_reading = true;
+
+		int bytes_read;
+		char buffer[IO_BUFFER_SIZE];
+
+		string previous_stdout_partial;
+		string previous_stderr_partial;
+
+		int status;
+
+		while( continue_reading ){
+
+			//WNOHANG makes this return immediately (so we can continue to service the pipes)
+			pid_t current_child_pid = waitpid(-1, &status, WUNTRACED | WNOHANG | WCONTINUED );
+
+			if( current_child_pid == -1 ){
+				//error, or no child processes
+                observer.addLogEntry( "logport: adopt waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
+                continue_reading = false;
+			}
+
+			if( current_child_pid == 0 ){
+				//no children have exited
+
+			}
+
+
+			if( current_child_pid > 0 ){
+
+				string log_line;
+
+				// log the exit code
+				if( WIFEXITED(status) ){
+
+					int exit_status = WEXITSTATUS(status);
+					log_line = "logport: PID (" + logport::to_string<pid_t>(current_child_pid) + ") exited with status " + logport::to_string<int>(exit_status);
+					continue_reading = false;
+
+				}else if( WIFSIGNALED(status) ){
+
+					int signal_number = WTERMSIG(status);
+					log_line = "logport: PID (" + logport::to_string<pid_t>(current_child_pid) + ") killed by signal " + logport::to_string<int>(signal_number);
+					continue_reading = false;
+
+				}else if( WIFSTOPPED(status) ){
+
+					int signal_number = WSTOPSIG(status);
+					log_line = "logport: PID (" + logport::to_string<pid_t>(current_child_pid) + ") stopped by signal " + logport::to_string<int>(signal_number);
+
+				}else if( WIFCONTINUED(status) ){
+
+					log_line = "logport: PID (" + logport::to_string<pid_t>(current_child_pid) + ") continued";
+
+				}else{
+
+					log_line = "logport: PID (" + logport::to_string<pid_t>(current_child_pid) + ") unknown return from waitpid "  + logport::to_string<int>(status);
+
+				}
+
+				string filtered_log_line = watch.filterLogLine( log_line );
+				kafka_producer.produce( filtered_log_line );
+				
+			}
+
+
+
+			if( stdin_watcher.watch(333) ){  //returns immediately if there are inotify events waiting; returns after 333ms if no events;
+
+                bytes_read = read( STDIN_FILENO, buffer, IO_BUFFER_SIZE );
+
+                if( bytes_read > 0 ){
+
+                	//pass the stdin contents to the child process
+                	int write_result = write( child_stdin_pipe[1], buffer, bytes_read );
+
+                	if( write_result == -1 ){
+					
+	                	int e = errno;
+
+						if( e ){
+							string error_string( strerror(e) );
+							observer.addLogEntry( "logport: failed to write to child_stdin_pipe: " + error_string );
+		               	}					
+
+					}
+  
+                }else{
+
+                    //no bytes read (EOF)
+
+                }
+
+			}else{
+
+                //no events waiting on stdin; timed out watching for 333ms
+
+            }
+
+
+
+
+			if( child_stdout_watcher.watch(333) ){  //returns immediately if there are inotify events waiting; returns after 333ms if no events;
+
+                    bytes_read = read( child_stdout_pipe[0], buffer, IO_BUFFER_SIZE );
+
+                    if( bytes_read > 0 ){
+
+                        string stdout_chunk( buffer, bytes_read );
+
+                        //append previous, if applicable
+                            if( previous_stdout_partial.size() ){
+                                stdout_chunk = previous_stdout_partial + stdout_chunk;
+                                previous_stdout_partial.clear();
+                            }
+
+                        //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
+                        //no partial line will ever be sent
+                            string::iterator current_message_begin_it = stdout_chunk.begin();
+                            string::iterator current_message_end_it = stdout_chunk.begin();
+
+                            char current_char;
+
+                            while( current_message_end_it != stdout_chunk.end() ){
+                                                                    
+                                current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
+
+                                if( current_char == '\n' ){
+
+                                    string sent_message;
+                                    sent_message.reserve( stdout_chunk.size() );
+
+                                    //only copy if there's something to copy
+                                    if( current_message_end_it != current_message_begin_it ){
+                                        std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
+                                    }
+
+                                    
+
+                                    if( sent_message.size() > 0 ){
+
+                                        string filtered_log_line = watch.filterLogLine( sent_message );
+
+                                        //handle consecutive newline characters (by dropping them)
+                                        kafka_producer.produce( filtered_log_line );
+
+                                        //also write to this stdout
+                                        std::cout << sent_message << std::endl;
+                                        
+                                        //skips the new line
+                                        current_message_end_it++;
+
+                                        //re-sync the being and end iterators
+                                        current_message_begin_it = current_message_end_it;
+
+                                        /*
+                                        std::cout << "stdout_chunk(" << stdout_chunk.size() << "): " << std::endl;
+                                        std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                        std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
+                                        std::cout << "previous_stdout_partial(" << previous_stdout_partial.size() << "): " << previous_stdout_partial << std::endl;
+                                        */
+                                    }
+
+                                }else{
+
+                                    current_message_end_it++;
+
+                                }
+
+                            }
+
+                            //if we're at the end and we have an incomplete message, copy remaining incomplete line
+                            if( current_message_begin_it != current_message_end_it ){
+                                previous_stdout_partial.reserve( stdout_chunk.size() );
+                                std::copy( current_message_begin_it, stdout_chunk.end(), std::back_inserter(previous_stdout_partial) );
+                            }
+
+
+
+                    }else{
+
+                        //no bytes read (EOF)
+
+                    }
+
+			}else{
+
+                //no events waiting on child's stdout; timed out watching for 333ms
+
+            }
+
+
+
+
+			if( child_stderr_watcher.watch(334) ){  //returns immediately if there are inotify events waiting; returns after 334ms if no events;
+
+                    bytes_read = read( child_stderr_pipe[0], buffer, IO_BUFFER_SIZE );
+
+                    if( bytes_read > 0 ){
+
+                        string stderr_chunk( buffer, bytes_read );
+
+                        //append previous, if applicable
+                            if( previous_stderr_partial.size() ){
+                                stderr_chunk = previous_stderr_partial + stderr_chunk;
+                                previous_stderr_partial.clear();
+                            }
+
+                        //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
+                        //no partial line will ever be sent
+                            string::iterator current_message_begin_it = stderr_chunk.begin();
+                            string::iterator current_message_end_it = stderr_chunk.begin();
+
+                            char current_char;
+
+                            while( current_message_end_it != stderr_chunk.end() ){
+                                                                    
+                                current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
+
+                                if( current_char == '\n' ){
+
+                                    string sent_message;
+                                    sent_message.reserve( stderr_chunk.size() );
+
+                                    //only copy if there's something to copy
+                                    if( current_message_end_it != current_message_begin_it ){
+                                        std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
+                                    }
+
+                                    
+
+                                    if( sent_message.size() > 0 ){
+
+                                        string filtered_log_line = watch.filterLogLine( sent_message );
+
+                                        //handle consecutive newline characters (by dropping them)
+                                        kafka_producer.produce( filtered_log_line );
+
+                                        //also write to this stderr
+                                        std::cerr << sent_message << std::endl;
+                                        
+                                        //skips the new line
+                                        current_message_end_it++;
+
+                                        //re-sync the being and end iterators
+                                        current_message_begin_it = current_message_end_it;
+
+                                        /*
+                                        std::cout << "stderr_chunk(" << stderr_chunk.size() << "): " << std::endl;
+                                        std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                        std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
+                                        std::cout << "previous_stderr_partial(" << previous_stderr_partial.size() << "): " << previous_stderr_partial << std::endl;
+                                        */
+                                    }
+
+                                }else{
+
+                                    current_message_end_it++;
+
+                                }
+
+                            }
+
+                            //if we're at the end and we have an incomplete message, copy remaining incomplete line
+                            if( current_message_begin_it != current_message_end_it ){
+                                previous_stderr_partial.reserve( stderr_chunk.size() );
+                                std::copy( current_message_begin_it, stderr_chunk.end(), std::back_inserter(previous_stderr_partial) );
+                            }
+
+
+
+                    }else{
+
+                        //no bytes read (EOF)
+
+                    }
+
+			}else{
+
+                //no events waiting on child's stderr; timed out watching for 334ms
+
+            }
+
+            /* A producer application should continually serve
+             * the delivery report queue by calling rd_kafka_poll()
+             * at frequent intervals.
+             * Either put the poll call in your main loop, or in a
+             * dedicated thread, or call it after every
+             * rd_kafka_produce() call.
+             * Just make sure that rd_kafka_poll() is still called
+             * during periods where you are not producing any messages
+             * to make sure previously produced messages have their
+             * delivery report callback served (and any other callbacks
+             * you register). */
+            kafka_producer.poll();
+
+
+		} //continue reading loop
+
+		kafka_producer.poll( 5000 );
+
+	}
+
+
+
+	void LogPort::loadEnvironmentVariables(){
+
+		int i = 0;
+		while( environ[i] ){
+
+			string environment_line( environ[i] ); // in the form of "variable=value"
+			i++;
+
+			std::string::size_type n = environment_line.find('=');
+
+			if( n == std::string::npos ){
+				//not found
+				throw std::runtime_error("Unexpected environment format.");
+			} else {				
+				string variable_name = environment_line.substr(0, n);
+				string variable_value = environment_line.substr(n + 1);
+				this->environment_variables.insert( std::pair<string,string>(variable_name, variable_value) );
+			}
+
+		}
+
+	}
+
+
+
+
+	pid_t LogPort::startProcess( const string& executable_path, const string& process_description, const std::vector<string>& arguments, const std::map<string,string>& environment_variables, int *child_stdin_pipe, int *child_stdout_pipe, int *child_stderr_pipe ){
+
+		pid_t pid = fork();
+
+		if( pid == 0 ){
+			//child
+
+			//redirect stdin to the read end of the stdin pipe
+			dup2( child_stdin_pipe[0], STDIN_FILENO );
+
+			//redirect stdout to the write end of the stdout pipe
+			dup2( child_stdout_pipe[1], STDOUT_FILENO );
+
+			//redirect stderr to the write end of the stderr pipe
+			dup2( child_stderr_pipe[1], STDERR_FILENO );
+
+
+			//close unused ends of the pipes
+				close( child_stdin_pipe[1] );
+				close( child_stdout_pipe[0] );
+				close( child_stderr_pipe[0] );
+
+
+			//const char* child_args[] = { process_description.c_str(), NULL };
+			//const char* child_envp[] = { "HELP=doggy", NULL };
+
+			//populate the child_args array
+				size_t num_arguments = arguments.size();
+
+				if( num_arguments > 1023 ){
+					throw std::runtime_error("Too many arguments (" + logport::to_string<size_t>(num_arguments) + "/1023).");
+				}
+
+
+				//this must be deleted later; throws on new fail
+				char** child_args = new char*[ num_arguments + 1 ];
+
+				int x = 0;
+				child_args[x] = const_cast<char*>( process_description.c_str() );
+				++x;
+				for( vector<string>::const_iterator it = arguments.begin(); it != arguments.end(); it++ ){
+					child_args[x] = const_cast<char*>( (*it).c_str() );
+					++x;
+				}
+				child_args[x] = NULL;
+
+
+
+			//merge the two fields back into the canonical environment variable string
+			//this memory must persist until child_envp is done with it
+
+				if( environment_variables.size() > 255 ){
+					delete child_args;
+					throw std::runtime_error("Too many environment variables (" + logport::to_string<size_t>(environment_variables.size()) + "/255).");
+				}
+
+				std::vector<string> child_env_vec;
+				for( std::map<string,string>::const_iterator it = environment_variables.begin(); it != environment_variables.end(); it++ ){
+					child_env_vec.push_back( it->first + "=" + it->second );
+				}
+
+				//this must be deleted later; throws on new fail
+				char** child_envp = new char*[ environment_variables.size() + 1 ];
+
+				x = 0;
+				for( vector<string>::iterator it = child_env_vec.begin(); it != child_env_vec.end(); it++ ){
+					child_envp[x] = const_cast<char*>( (*it).c_str() );
+					++x;
+				}
+				child_envp[x] = NULL;
+
+
+			//start the process
+			int result = execve( executable_path.c_str(), const_cast<char**>(child_args), const_cast<char**>(child_envp) );
+
+
+			//result will always be -1 here because execve doesn't return if successful
+			if( result == -1 ){
+
+				int e = errno;
+
+				if( e ){
+					string error_string( strerror(e) );
+					Observer observer;
+					observer.addLogEntry( "Failed to execve: " + error_string );
+				}
+
+			}
+			delete child_args;
+			delete child_envp;
+
+			exit(1);
+
+		}else if( pid == -1 ){
+
+			//error
+
+			int e = errno;
+
+			if( e ){
+				string error_string( strerror(e) );
+				Observer observer;
+				observer.addLogEntry( "Failed to fork: " + error_string );
+			}
+
+
+		}else{
+			//parent
+			
+			return pid;
+
+		}
+
+		return -1;
+
+    }
+
+
+
 
 
 

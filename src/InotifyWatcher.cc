@@ -444,47 +444,7 @@ namespace logport{
 
     string InotifyWatcher::filterLogLine( const string& unfiltered_log_line ) const{
 
-        string filtered_log_line = unfiltered_log_line;
-
-
-        // add your pre-filtering code here
-        /*
-        if( 0 ){
-            filtered_log_line = "{\"log_type\":\"tombstone\"}";
-            return filtered_log_line;
-        }
-        */
-
-
-        size_t log_length = filtered_log_line.size();
-
-        if( log_length == 0 ){
-            return filtered_log_line;
-        }
-
-
-        string json_meta = "{\"shipped_at\":" + get_timestamp() + ",\"host\":\"" + this->watch.hostname + "\",\"source\":\"" + this->watch.watched_filepath + "\",\"prd\":\"" + this->watch.product_code + "\"";
-
-
-        //unstructured single-line log entry
-            if( filtered_log_line[0] != '{' ){
-
-                filtered_log_line = json_meta + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
-                return filtered_log_line;
-
-            }
-
-        //embedded single-line JSON
-            if( filtered_log_line[0] == '{' ){
-
-                //this embedded single-line JSON MUST begin and end with a brace
-                filtered_log_line = json_meta + ",\"log_obj\":" + filtered_log_line + "}";
-                return filtered_log_line;
-
-            }
-
-
-        return filtered_log_line;
+        return this->watch.filterLogLine( unfiltered_log_line );
 
     }
 

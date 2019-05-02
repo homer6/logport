@@ -7,6 +7,9 @@ using std::string;
 #include <vector>
 using std::vector;
 
+#include <map>
+using std::map;
+
 #include "Platform.h"
 #include "Observer.h"
 
@@ -55,6 +58,7 @@ namespace logport{
 	        void printHelpSet();
 	        void printHelpUnset();
 	        void printHelpInspect();
+	        void printHelpAdopt();
 
 	        void printUnsupportedPlatform();
 
@@ -66,6 +70,7 @@ namespace logport{
 	        void listWatches();
 
 			void watchNow( const Watch& watch ) const;
+			void adopt( const Watch& watch );
 
 
 			bool addSetting( const string& key, const string& value );
@@ -96,6 +101,9 @@ namespace logport{
 	    	void waitUnlessEvent( int seconds );
 
 
+	    	void loadEnvironmentVariables();
+	    	pid_t startProcess( const string& executable_path, const string& process_description, const std::vector<string>& arguments, const std::map<string,string>& environment_variables, int *child_stdin_pipe, int *child_stdout_pipe, int *child_stderr_pipe );
+
 
 	    private:
 	    	Database *db;
@@ -109,6 +117,10 @@ namespace logport{
 	     	vector<string> command_line_arguments;
 	     	string current_version;
 	     	Platform current_platform;
+
+	     	vector<string> additional_arguments;
+	     	map<string,string> environment_variables;
+
 
 	     	string pid_filename;
 

@@ -49,6 +49,8 @@ namespace logport{
 
 	        void bind( PreparedStatement& statement, bool skip_id = true ) const;
 
+	        string filterLogLine( const string& unfiltered_log_line ) const;
+
 	};
 
 }
