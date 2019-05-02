@@ -41,7 +41,7 @@ namespace logport{
 
         if( epoll_result == -1 ){
             close( this->epollfd );
-            snprintf( error_string_buffer, sizeof(error_string_buffer), "%d", epoll_result );
+            snprintf( error_string_buffer, sizeof(error_string_buffer), "%d %d", epoll_result, this->watching_file_descriptor );
             throw std::runtime_error( "Failed to add epoll watched file: " + string(error_string_buffer) );
         }
 

@@ -564,6 +564,9 @@ namespace logport{
     		this->command = this->command_line_arguments[1];
     	}
 
+		this->loadEnvironmentVariables();
+
+
     	if( this->command == "-h" || this->command == "--help" || this->command == "help" ){
     		this->printHelp();
     		return 0;
@@ -874,7 +877,29 @@ namespace logport{
     }
 
 
+    string LogPort::getEnvironmentVariable( const string& variable_name ) const{
+
+    	if( this->environment_variables.count(variable_name) != 0 ){
+    		return this->environment_variables.at(variable_name);
+    	}
+
+    	return "";
+
+    }
+
+    void LogPort::setEnvironmentVariable( const string& variable_name, const string& variable_value ){
+
+    	this->environment_variables.insert( std::pair<string,string>(variable_name,variable_value) );
+
+    }
+
+
 	string LogPort::getDefaultTopic(){
+
+		string default_topic_env = this->getEnvironmentVariable( "LOGPORT_TOPIC" );
+		if( default_topic_env.size() > 0 ){
+			return default_topic_env;
+		}
 
 		string default_topic = this->getSetting( "default.topic" );
 
@@ -889,6 +914,11 @@ namespace logport{
 
 	string LogPort::getDefaultBrokers(){
 
+		string default_brokers_env = this->getEnvironmentVariable( "LOGPORT_BROKERS" );
+		if( default_brokers_env.size() > 0 ){
+			return default_brokers_env;
+		}
+
 		string default_brokers = this->getSetting( "default.brokers" );
 
 		if( default_brokers.size() > 0 ){
@@ -902,6 +932,11 @@ namespace logport{
 
 	string LogPort::getDefaultProductCode(){
 
+		string default_product_code_env = this->getEnvironmentVariable( "LOGPORT_PRODUCT_CODE" );
+		if( default_product_code_env.size() > 0 ){
+			return default_product_code_env;
+		}
+
 		string default_product_code = this->getSetting( "default.product_code" );
 
 		if( default_product_code.size() > 0 ){
@@ -914,6 +949,11 @@ namespace logport{
 
 
 	string LogPort::getDefaultHostname(){
+
+		string default_hostname_env = this->getEnvironmentVariable( "LOGPORT_HOSTNAME" );
+		if( default_hostname_env.size() > 0 ){
+			return default_hostname_env;
+		}
 
 		string default_hostname = this->getSetting( "default.hostname" );
 
@@ -1253,8 +1293,6 @@ namespace logport{
 		Watch current_watch = watch;
 
 
-		this->loadEnvironmentVariables();
-
 		if( this->additional_arguments.size() == 0 ){
 			this->printHelpAdopt();
 			return;
@@ -1326,7 +1364,7 @@ namespace logport{
 			close( child_stderr_pipe[1] );
 
 
-		LevelTriggeredEpollWatcher stdin_watcher( STDIN_FILENO );
+		//LevelTriggeredEpollWatcher stdin_watcher( STDIN_FILENO );
 		LevelTriggeredEpollWatcher child_stdout_watcher( child_stdout_pipe[0] );
 		LevelTriggeredEpollWatcher child_stderr_watcher( child_stderr_pipe[0] );
 
@@ -1404,6 +1442,7 @@ namespace logport{
 			}
 
 
+			/*
 
 			if( stdin_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
 
@@ -1438,6 +1477,8 @@ namespace logport{
                 //no events waiting on stdin; timed out watching for 0ms
 
             }
+
+            */
 
 
 
@@ -1685,7 +1726,7 @@ namespace logport{
 			//child
 
 			//redirect stdin to the read end of the stdin pipe
-			dup2( child_stdin_pipe[0], STDIN_FILENO );
+			//dup2( child_stdin_pipe[0], STDIN_FILENO );
 
 			//redirect stdout to the write end of the stdout pipe
 			dup2( child_stdout_pipe[1], STDOUT_FILENO );

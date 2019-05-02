@@ -78,6 +78,9 @@ namespace logport{
 			bool removeSetting( const string& key );
 			void listSettings();
 
+			void loadEnvironmentVariables();
+            string getEnvironmentVariable( const string& variable_name ) const;
+            void setEnvironmentVariable( const string& variable_name, const string& variable_value );
 
 	        Database& getDatabase();
 	        Inspector& getInspector();
@@ -101,7 +104,7 @@ namespace logport{
 	    	void waitUnlessEvent( int seconds );
 
 
-	    	void loadEnvironmentVariables();
+	    	
 	    	pid_t startProcess( const string& executable_path, const string& process_description, const std::vector<string>& arguments, const std::map<string,string>& environment_variables, int *child_stdin_pipe, int *child_stdout_pipe, int *child_stderr_pipe );
 
 
