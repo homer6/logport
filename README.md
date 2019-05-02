@@ -186,10 +186,17 @@ logport uninstall
 ```
 
 
-## Building
+## Building (Ubuntu)
 ```
+git clone https://github.com/homer6/logport.git
+cd logport/
+sudo apt -y install cmake g++ librdkafka-dev
 cmake .
 make
+cd build
+./logport install
+cd .. 
+logport watches
 ```
 
 
