@@ -25,6 +25,7 @@ using std::endl;
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <iterator>
 
 #include "Common.h"
 
@@ -527,6 +528,8 @@ namespace logport{
 
 		cerr << "Usage: logport adopt [OPTION]... [EXECUTABLE] [EXECUTABLE_ARGS]...\n"
 				"Run an executable and capture its stdout, stderr, and exit code.\n"
+				"Stdin is also piped to the adopted process.\n"
+				"The executable MUST contain the full absolute path of the executable.\n"
 				"\n"
 				"Mandatory arguments to long options are mandatory for short options too.\n"
 				"  -b, --brokers [BROKERS]             a csv list of kafka brokers\n"
@@ -578,7 +581,11 @@ namespace logport{
     	if( this->command == "watch" || this->command == "now" || this->command == "adopt" ){
 
     		if( argc <= 2 ){
-    			this->printHelpWatch();
+    			if( this->command == "adopt" ){
+					this->printHelpAdopt();
+    			}else{    				
+    				this->printHelpWatch();
+    			}    			
     			return -1;
     		}
 
@@ -1238,7 +1245,7 @@ namespace logport{
 
 
 
-	#define IO_BUFFER_SIZE 4 * 1024
+	#define IO_BUFFER_SIZE 64 * 1024
 
 
 	void LogPort::adopt( const Watch& watch ){
@@ -1251,6 +1258,10 @@ namespace logport{
 			return;
 		}
 
+		if( this->additional_arguments.size() < 1 ){
+			throw std::runtime_error( "Invalid additional_arguments." );
+		}
+
 		string executable = this->additional_arguments[0];
 		string process_description = executable;
 
@@ -1259,7 +1270,7 @@ namespace logport{
 		//drop the executable from the passed arguments (first argument)
 			vector<string>::iterator it = this->additional_arguments.begin();
 			it++;
-			std::copy( it, this->additional_arguments.end(), arguments.begin() );
+			std::copy( it, this->additional_arguments.end(), std::back_inserter(arguments) );
 
 		map<string,string> env_vars = this->environment_variables;
 
@@ -1267,6 +1278,12 @@ namespace logport{
 
 		Observer& observer = this->getObserver();
 
+
+		/*
+		for( vector<string>::const_iterator it = this->additional_arguments.begin(); it != this->additional_arguments.end(); it++ ){
+			cout << "additional_arg: " << *it << endl;
+		}
+		*/
 
 
 
@@ -1332,10 +1349,14 @@ namespace logport{
 				//error, or no child processes
                 observer.addLogEntry( "logport: adopt waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
                 continue_reading = false;
+
+                //cout << "error, or no child processes" << endl;
 			}
 
 			if( current_child_pid == 0 ){
 				//no children have exited
+
+				//cout << "no children have exited" << endl;
 
 			}
 
@@ -1343,6 +1364,8 @@ namespace logport{
 			if( current_child_pid > 0 ){
 
 				string log_line;
+
+				//cout << "current_child_pid: " << current_child_pid << endl;
 
 				// log the exit code
 				if( WIFEXITED(status) ){
@@ -1383,6 +1406,8 @@ namespace logport{
 
                 bytes_read = read( STDIN_FILENO, buffer, IO_BUFFER_SIZE );
 
+                //cout << "stdin bytes read: " << bytes_read << endl;
+
                 if( bytes_read > 0 ){
 
                 	//pass the stdin contents to the child process
@@ -1417,6 +1442,8 @@ namespace logport{
 			if( child_stdout_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
                     bytes_read = read( child_stdout_pipe[0], buffer, IO_BUFFER_SIZE );
+
+                    //cout << "child_stdout_pipe bytes read: " << bytes_read << endl;
 
                     if( bytes_read > 0 ){
 
@@ -1509,6 +1536,8 @@ namespace logport{
 			if( child_stderr_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
 
                     bytes_read = read( child_stderr_pipe[0], buffer, IO_BUFFER_SIZE );
+
+                    //cout << "child_stderr_pipe read: " << bytes_read << endl;
 
                     if( bytes_read > 0 ){
 
@@ -1611,7 +1640,7 @@ namespace logport{
 
 		} //continue reading loop
 
-		kafka_producer.poll( 5000 );
+		//kafka_producer.poll( 1000 );
 
 	}
 
