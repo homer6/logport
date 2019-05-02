@@ -1250,6 +1250,8 @@ namespace logport{
 
 	void LogPort::adopt( const Watch& watch ){
 
+		Watch current_watch = watch;
+
 
 		this->loadEnvironmentVariables();
 
@@ -1395,7 +1397,8 @@ namespace logport{
 
 				}
 
-				string filtered_log_line = watch.filterLogLine( log_line );
+				current_watch.watched_filepath = "process_exit";
+				string filtered_log_line = current_watch.filterLogLine( log_line );
 				kafka_producer.produce( filtered_log_line );
 				
 			}
@@ -1480,7 +1483,8 @@ namespace logport{
 
                                     if( sent_message.size() > 0 ){
 
-                                        string filtered_log_line = watch.filterLogLine( sent_message );
+                                    	current_watch.watched_filepath = "stdout";
+                                        string filtered_log_line = current_watch.filterLogLine( sent_message );
 
                                         //handle consecutive newline characters (by dropping them)
                                         kafka_producer.produce( filtered_log_line );
@@ -1574,7 +1578,8 @@ namespace logport{
 
                                     if( sent_message.size() > 0 ){
 
-                                        string filtered_log_line = watch.filterLogLine( sent_message );
+                                    	current_watch.watched_filepath = "stderr";
+                                        string filtered_log_line = current_watch.filterLogLine( sent_message );
 
                                         //handle consecutive newline characters (by dropping them)
                                         kafka_producer.produce( filtered_log_line );
