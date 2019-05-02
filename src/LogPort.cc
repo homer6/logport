@@ -1379,7 +1379,7 @@ namespace logport{
 
 
 
-			if( stdin_watcher.watch(333) ){  //returns immediately if there are inotify events waiting; returns after 333ms if no events;
+			if( stdin_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
 
                 bytes_read = read( STDIN_FILENO, buffer, IO_BUFFER_SIZE );
 
@@ -1407,14 +1407,14 @@ namespace logport{
 
 			}else{
 
-                //no events waiting on stdin; timed out watching for 333ms
+                //no events waiting on stdin; timed out watching for 0ms
 
             }
 
 
 
 
-			if( child_stdout_watcher.watch(333) ){  //returns immediately if there are inotify events waiting; returns after 333ms if no events;
+			if( child_stdout_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
                     bytes_read = read( child_stdout_pipe[0], buffer, IO_BUFFER_SIZE );
 
@@ -1499,14 +1499,14 @@ namespace logport{
 
 			}else{
 
-                //no events waiting on child's stdout; timed out watching for 333ms
+                //no events waiting on child's stdout; timed out watching for 1000ms
 
             }
 
 
 
 
-			if( child_stderr_watcher.watch(334) ){  //returns immediately if there are inotify events waiting; returns after 334ms if no events;
+			if( child_stderr_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
 
                     bytes_read = read( child_stderr_pipe[0], buffer, IO_BUFFER_SIZE );
 
@@ -1678,7 +1678,7 @@ namespace logport{
 
 
 				//this must be deleted later; throws on new fail
-				char** child_args = new char*[ num_arguments + 1 ];
+				char** child_args = new char*[ num_arguments + 2 ];
 
 				int x = 0;
 				child_args[x] = const_cast<char*>( process_description.c_str() );
@@ -1716,7 +1716,7 @@ namespace logport{
 
 
 			//start the process
-			int result = execve( executable_path.c_str(), const_cast<char**>(child_args), const_cast<char**>(child_envp) );
+			int result = execve( executable_path.c_str(), child_args, child_envp );
 
 
 			//result will always be -1 here because execve doesn't return if successful
@@ -1731,8 +1731,8 @@ namespace logport{
 				}
 
 			}
-			delete child_args;
-			delete child_envp;
+			delete[] child_args;
+			delete[] child_envp;
 
 			exit(1);
 
