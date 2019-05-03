@@ -1822,7 +1822,7 @@ namespace logport{
 			int result = execve( full_executable_path.c_str(), child_args, child_envp );
 
 			if( errno == ENOEXEC ){
-				throw std::runtime_error("Executable not found. Please ensure that you provide the full, absolute path." );
+				throw std::runtime_error("Executable not found. Please ensure that you either provide the full, absolute path or the executable is in your PATH." );
 			}
 
 
