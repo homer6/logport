@@ -9,6 +9,12 @@ using std::string;
 
 #include <sstream>
 
+#include <vector>
+using std::vector;
+
+#include <iostream>
+#include <iomanip>
+
 
 namespace logport{
 
@@ -23,6 +29,11 @@ namespace logport{
 
 	//gets the absolute path (resolves symlinks too)
 	string get_real_filepath( const string& relative_filepath );
+
+	string get_executable_filepath( const string& relative_filepath );
+
+
+	vector<string> split_string( const string& source, char delimiter );
 
 
 	string escape_to_json_string( const string& unescaped_string );

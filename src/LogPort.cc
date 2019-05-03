@@ -453,6 +453,7 @@ namespace logport{
 "   unwatch    Remove a watch\n"
 "   watches    List all watches\n"
 "   now        Watches a file temporarily (same options as watch)\n"
+"   adopt      Wraps around a process, sending stdout and stderr to kafka.\n"
 "   destory    Restore logport to factory settings. Clears all watches.\n"
 "\n"
 "manage settings\n"
@@ -528,8 +529,6 @@ namespace logport{
 
 		cerr << "Usage: logport adopt [OPTION]... [EXECUTABLE] [EXECUTABLE_ARGS]...\n"
 				"Run an executable and capture its stdout, stderr, and exit code.\n"
-				"Stdin is also piped to the adopted process.\n"
-				"The executable MUST contain the full absolute path of the executable.\n"
 				"\n"
 				"Mandatory arguments to long options are mandatory for short options too.\n"
 				"  -b, --brokers [BROKERS]             a csv list of kafka brokers\n"
@@ -1380,10 +1379,16 @@ namespace logport{
 
 		int status;
 
+		//int x = 0;
+
 		while( continue_reading ){
+
+			//cout << x++ << endl;
 
 			//WNOHANG makes this return immediately (so we can continue to service the pipes)
 			pid_t current_child_pid = waitpid(-1, &status, WUNTRACED | WNOHANG | WCONTINUED );
+
+			//cout << "current_child_pid == -1" << endl;
 
 			if( current_child_pid == -1 ){
 				//error, or no child processes
@@ -1393,6 +1398,8 @@ namespace logport{
                 //cout << "error, or no child processes" << endl;
 			}
 
+			//cout << "current_child_pid == 0" << endl;
+
 			if( current_child_pid == 0 ){
 				//no children have exited
 
@@ -1400,6 +1407,7 @@ namespace logport{
 
 			}
 
+			//cout << "current_child_pid > 0" << endl;
 
 			if( current_child_pid > 0 ){
 
@@ -1442,9 +1450,12 @@ namespace logport{
 			}
 
 
-			/*
+			//cout << "stdin_watcher.watch(0)" << endl;
 
+			/*
 			if( stdin_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
+
+				//cout << "reading from stdin" << endl;
 
                 bytes_read = read( STDIN_FILENO, buffer, IO_BUFFER_SIZE );
 
@@ -1477,97 +1488,104 @@ namespace logport{
                 //no events waiting on stdin; timed out watching for 0ms
 
             }
-
             */
 
 
-
+            //cout << "child_stdout_watcher.watch(1000)" << endl;
 
 			if( child_stdout_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
-                    bytes_read = read( child_stdout_pipe[0], buffer, IO_BUFFER_SIZE );
+				//cout << "reading from stdout" << endl;
+				
+                bytes_read = read( child_stdout_pipe[0], buffer, IO_BUFFER_SIZE );
 
-                    //cout << "child_stdout_pipe bytes read: " << bytes_read << endl;
+                //cout << "child_stdout_pipe bytes read: " << bytes_read << endl;
 
-                    if( bytes_read > 0 ){
+                if( bytes_read > 0 ){
 
-                        string stdout_chunk( buffer, bytes_read );
+                    string stdout_chunk( buffer, bytes_read );
 
-                        //append previous, if applicable
-                            if( previous_stdout_partial.size() ){
-                                stdout_chunk = previous_stdout_partial + stdout_chunk;
-                                previous_stdout_partial.clear();
-                            }
+                    //append previous, if applicable
+                        if( previous_stdout_partial.size() ){
+                            stdout_chunk = previous_stdout_partial + stdout_chunk;
+                            previous_stdout_partial.clear();
+                        }
 
-                        //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
-                        //no partial line will ever be sent
-                            string::iterator current_message_begin_it = stdout_chunk.begin();
-                            string::iterator current_message_end_it = stdout_chunk.begin();
+                    //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
+                    //no partial line will ever be sent
+                        string::iterator current_message_begin_it = stdout_chunk.begin();
+                        string::iterator current_message_end_it = stdout_chunk.begin();
 
-                            char current_char;
+                        char current_char;
 
-                            while( current_message_end_it != stdout_chunk.end() ){
-                                                                    
-                                current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
+                        while( current_message_end_it != stdout_chunk.end() ){
+                                                                
+                            current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
 
-                                if( current_char == '\n' ){
+                            if( current_char == '\n' ){
 
-                                    string sent_message;
-                                    sent_message.reserve( stdout_chunk.size() );
+                                string sent_message;
+                                //sent_message.reserve( stdout_chunk.size() );
 
-                                    //only copy if there's something to copy
-                                    if( current_message_end_it != current_message_begin_it ){
-                                        std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
-                                    }
+                                //only copy if there's something to copy
+                                if( current_message_end_it != current_message_begin_it ){
+                                    std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
+                                }
 
+                                
+
+                                if( sent_message.size() > 0 ){
+
+                                	current_watch.watched_filepath = "stdout";
+                                    string filtered_log_line = current_watch.filterLogLine( sent_message );
+
+                                    //handle consecutive newline characters (by dropping them)
+                                    kafka_producer.produce( filtered_log_line );
+                                    kafka_producer.poll();
+
+                                    //also write to this stdout
+                                    std::cout << sent_message << std::endl;
                                     
+                                    //skips the new line
+                                    current_message_end_it++;
 
-                                    if( sent_message.size() > 0 ){
+                                    //re-sync the being and end iterators
+                                    current_message_begin_it = current_message_end_it;
 
-                                    	current_watch.watched_filepath = "stdout";
-                                        string filtered_log_line = current_watch.filterLogLine( sent_message );
-
-                                        //handle consecutive newline characters (by dropping them)
-                                        kafka_producer.produce( filtered_log_line );
-
-                                        //also write to this stdout
-                                        std::cout << sent_message << std::endl;
-                                        
-                                        //skips the new line
-                                        current_message_end_it++;
-
-                                        //re-sync the being and end iterators
-                                        current_message_begin_it = current_message_end_it;
-
-                                        /*
-                                        std::cout << "stdout_chunk(" << stdout_chunk.size() << "): " << std::endl;
-                                        std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
-                                        std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
-                                        std::cout << "previous_stdout_partial(" << previous_stdout_partial.size() << "): " << previous_stdout_partial << std::endl;
-                                        */
-                                    }
+                                    /*
+                                    std::cout << "stdout_chunk(" << stdout_chunk.size() << "): " << std::endl;
+                                    std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                    std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
+                                    std::cout << "previous_stdout_partial(" << previous_stdout_partial.size() << "): " << previous_stdout_partial << std::endl;
+									*/
 
                                 }else{
 
-                                    current_message_end_it++;
+                                	current_message_end_it++;
 
                                 }
 
+                            }else{
+
+                                current_message_end_it++;
+
                             }
 
-                            //if we're at the end and we have an incomplete message, copy remaining incomplete line
-                            if( current_message_begin_it != current_message_end_it ){
-                                previous_stdout_partial.reserve( stdout_chunk.size() );
-                                std::copy( current_message_begin_it, stdout_chunk.end(), std::back_inserter(previous_stdout_partial) );
-                            }
+                        }
+
+                        //if we're at the end and we have an incomplete message, copy remaining incomplete line
+                        if( current_message_begin_it != current_message_end_it ){
+                            //previous_stdout_partial.reserve( stdout_chunk.size() );
+                            std::copy( current_message_begin_it, stdout_chunk.end(), std::back_inserter(previous_stdout_partial) );
+                        }
 
 
 
-                    }else{
+                }else{
 
-                        //no bytes read (EOF)
+                    //no bytes read (EOF)
 
-                    }
+                }
 
 			}else{
 
@@ -1576,86 +1594,94 @@ namespace logport{
             }
 
 
+            //cout << "child_stderr_watcher.watch(0)" << endl;
 
 
 			if( child_stderr_watcher.watch(0) ){  //returns immediately if there are inotify events waiting; returns after 0ms if no events;
 
-                    bytes_read = read( child_stderr_pipe[0], buffer, IO_BUFFER_SIZE );
+				//cout << "reading from stderr" << endl;
 
-                    //cout << "child_stderr_pipe read: " << bytes_read << endl;
+				bytes_read = read( child_stderr_pipe[0], buffer, IO_BUFFER_SIZE );
 
-                    if( bytes_read > 0 ){
+				//cout << "child_stderr_pipe read: " << bytes_read << endl;
 
-                        string stderr_chunk( buffer, bytes_read );
+                if( bytes_read > 0 ){
 
-                        //append previous, if applicable
-                            if( previous_stderr_partial.size() ){
-                                stderr_chunk = previous_stderr_partial + stderr_chunk;
-                                previous_stderr_partial.clear();
-                            }
+                    string stderr_chunk( buffer, bytes_read );
 
-                        //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
-                        //no partial line will ever be sent
-                            string::iterator current_message_begin_it = stderr_chunk.begin();
-                            string::iterator current_message_end_it = stderr_chunk.begin();
+                    //append previous, if applicable
+                        if( previous_stderr_partial.size() ){
+                            stderr_chunk = previous_stderr_partial + stderr_chunk;
+                            previous_stderr_partial.clear();
+                        }
 
-                            char current_char;
+                    //send multiple lines as multiple kafka messages (no need to batch because rdkafka batches internally)
+                    //no partial line will ever be sent
+                        string::iterator current_message_begin_it = stderr_chunk.begin();
+                        string::iterator current_message_end_it = stderr_chunk.begin();
 
-                            while( current_message_end_it != stderr_chunk.end() ){
-                                                                    
-                                current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
+                        char current_char;
 
-                                if( current_char == '\n' ){
+                        while( current_message_end_it != stderr_chunk.end() ){
+                                                                
+                            current_char = *current_message_end_it; //safe to deref because "bytes_read > 0" above
 
-                                    string sent_message;
-                                    sent_message.reserve( stderr_chunk.size() );
+                            if( current_char == '\n' ){
 
-                                    //only copy if there's something to copy
-                                    if( current_message_end_it != current_message_begin_it ){
-                                        std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
-                                    }
+                                string sent_message;
+                                //sent_message.reserve( stderr_chunk.size() );
 
-                                    
-
-                                    if( sent_message.size() > 0 ){
-
-                                    	current_watch.watched_filepath = "stderr";
-                                        string filtered_log_line = current_watch.filterLogLine( sent_message );
-
-                                        //handle consecutive newline characters (by dropping them)
-                                        kafka_producer.produce( filtered_log_line );
-
-                                        //also write to this stderr
-                                        std::cerr << sent_message << std::endl;
-                                        
-                                        //skips the new line
-                                        current_message_end_it++;
-
-                                        //re-sync the being and end iterators
-                                        current_message_begin_it = current_message_end_it;
-
-                                        /*
-                                        std::cout << "stderr_chunk(" << stderr_chunk.size() << "): " << std::endl;
-                                        std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
-                                        std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
-                                        std::cout << "previous_stderr_partial(" << previous_stderr_partial.size() << "): " << previous_stderr_partial << std::endl;
-                                        */
-                                    }
-
-                                }else{
-
-                                    current_message_end_it++;
-
+                                //only copy if there's something to copy
+                                if( current_message_end_it != current_message_begin_it ){
+                                    std::copy( current_message_begin_it, current_message_end_it, std::back_inserter(sent_message) );  //drops the new line    
                                 }
 
+                                
+
+                                if( sent_message.size() > 0 ){
+
+                                	current_watch.watched_filepath = "stderr";
+                                    string filtered_log_line = current_watch.filterLogLine( sent_message );
+
+                                    //handle consecutive newline characters (by dropping them)
+                                    kafka_producer.produce( filtered_log_line );
+                                    kafka_producer.poll();
+
+                                    //also write to this stderr
+                                    std::cerr << sent_message << std::endl;
+                                    
+                                    //skips the new line
+                                    current_message_end_it++;
+
+                                    //re-sync the being and end iterators
+                                    current_message_begin_it = current_message_end_it;
+
+                                    /*
+                                    std::cout << "stderr_chunk(" << stderr_chunk.size() << "): " << std::endl;
+                                    std::cout << "unfiltered_message(" << sent_message.size() << "): " << sent_message << std::endl;
+                                    std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
+                                    std::cout << "previous_stderr_partial(" << previous_stderr_partial.size() << "): " << previous_stderr_partial << std::endl;
+                                    */
+                                }else{
+
+                                	current_message_end_it++;
+                                	
+                                }
+
+
+                            }else{
+
+                                current_message_end_it++;
+
                             }
 
-                            //if we're at the end and we have an incomplete message, copy remaining incomplete line
-                            if( current_message_begin_it != current_message_end_it ){
-                                previous_stderr_partial.reserve( stderr_chunk.size() );
-                                std::copy( current_message_begin_it, stderr_chunk.end(), std::back_inserter(previous_stderr_partial) );
-                            }
+                        }
 
+                        //if we're at the end and we have an incomplete message, copy remaining incomplete line
+                        if( current_message_begin_it != current_message_end_it ){
+                            //previous_stderr_partial.reserve( stderr_chunk.size() );
+                            std::copy( current_message_begin_it, stderr_chunk.end(), std::back_inserter(previous_stderr_partial) );
+                        }
 
 
                     }else{
@@ -1686,7 +1712,7 @@ namespace logport{
 
 		} //continue reading loop
 
-		//kafka_producer.poll( 1000 );
+		kafka_producer.poll( 1000 );
 
 	}
 
@@ -1726,7 +1752,7 @@ namespace logport{
 			//child
 
 			//redirect stdin to the read end of the stdin pipe
-			//dup2( child_stdin_pipe[0], STDIN_FILENO );
+			dup2( child_stdin_pipe[0], STDIN_FILENO );
 
 			//redirect stdout to the write end of the stdout pipe
 			dup2( child_stdout_pipe[1], STDOUT_FILENO );
@@ -1751,6 +1777,8 @@ namespace logport{
 					throw std::runtime_error("Too many arguments (" + logport::to_string<size_t>(num_arguments) + "/1023).");
 				}
 
+
+				string full_executable_path = get_executable_filepath( executable_path );
 
 				//this must be deleted later; throws on new fail
 				char** child_args = new char*[ num_arguments + 2 ];
@@ -1791,7 +1819,11 @@ namespace logport{
 
 
 			//start the process
-			int result = execve( executable_path.c_str(), child_args, child_envp );
+			int result = execve( full_executable_path.c_str(), child_args, child_envp );
+
+			if( errno == ENOEXEC ){
+				throw std::runtime_error("Executable not found. Please ensure that you provide the full, absolute path." );
+			}
 
 
 			//result will always be -1 here because execve doesn't return if successful

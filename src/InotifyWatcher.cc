@@ -323,7 +323,12 @@ namespace logport{
                                         std::cout << "filtered_sent_message(" << filtered_log_line.size() << "): " << filtered_log_line << std::endl;
                                         std::cout << "previous_log_partial(" << previous_log_partial.size() << "): " << previous_log_partial << std::endl;
                                         */
+                                    }else{
+
+                                        current_message_end_it++;
+                                    
                                     }
+
 
                                 }else{
 

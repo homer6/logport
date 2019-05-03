@@ -25,6 +25,9 @@
 
 #include <sys/wait.h>
 
+using std::cout;
+using std::cerr;
+using std::endl;
 
 
 
@@ -136,6 +139,71 @@ namespace logport{
         }
 
         return string(buffer);
+
+	}
+
+
+	vector<string> split_string( const string& source, char delimiter ){
+
+		std::vector<std::string> output;
+		std::istringstream buffer( source );
+		std::string token;
+		
+		while( std::getline(buffer, token, delimiter) ) {
+			output.push_back( token );
+		}
+		
+		return output;
+
+	}
+
+
+
+	string get_executable_filepath( const string& relative_filepath ){
+	
+		if( relative_filepath.size() == 0 ){
+			throw std::runtime_error( "Executable path is empty." );
+		}
+
+		if( relative_filepath[0] == '/' ){
+			return get_real_filepath( relative_filepath );
+		}	
+
+
+		char buffer[4097];
+
+		char* system_path = getenv("PATH");
+  		if( system_path == NULL ){
+  			//no PATH set
+
+  			char *result = realpath( relative_filepath.c_str(), buffer );
+	        if( result == NULL ){
+	        	//realpath failed
+				throw std::runtime_error( std::strerror(errno) );
+	        }
+
+  		}
+
+		string system_path_str( system_path );
+
+
+		vector<string> path_entries = split_string( system_path_str, ':' );
+
+		for( vector<string>::iterator it = path_entries.begin(); it != path_entries.end(); it++ ){
+
+			string path_entry = *it;
+
+			path_entry += "/" + relative_filepath;
+
+			char *result = realpath( path_entry.c_str(), buffer );
+			if( result != NULL ){
+				//realpath succeeded
+				return string(buffer);
+			}
+
+		}
+        
+        throw std::runtime_error( "Executable path not found." );
 
 	}
 
