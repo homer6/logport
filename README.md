@@ -159,6 +159,7 @@ manage watches
    unwatch    Remove a watch
    watches    List all watches
    now        Watches a file temporarily (same options as watch)
+   adopt      Wraps around a process, sending stdout and stderr to kafka.
    destory    Restore logport to factory settings. Clears all watches.
 
 manage settings
@@ -172,6 +173,7 @@ collect telemetry
 
 Please see: https://github.com/homer6/logport to report issues
 or view documentation.
+
 ```
 
 ## Clearing all settings and watches (factory defaults)
