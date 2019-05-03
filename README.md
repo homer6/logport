@@ -256,6 +256,12 @@ Eg. `chmod o-w /home/user/logport`
 logrotate -v -f /etc/logrotate.d/sample
 ```
 
+## Docker Injection
+```
+apt install docker.io
+docker build .
+docker run 5e780f99e1f6 cat /proc/cpuinfo
+```
 
 # Roadmap
 
