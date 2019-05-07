@@ -127,13 +127,41 @@ namespace logport{
 
 
         //set the offset to the last read position
-            off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
-            if( current_file_position == -1 ){
+            int64_t current_file_size = get_file_size( this->watched_file );
+
+            if( this->watch.file_offset > current_file_size ){
+
+                Observer observer;
+                observer.addLogEntry( "logport: file size is greater than watched offset for " + this->watched_file + ". Resetting to beginning of file." );
+
+                sleep(1);
+
                 //error is seeking, reset to 0
                 this->watch.file_offset = 0;
                 Database db;
                 this->watch.saveOffset( db );
+
+            }else{
+
+                off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
+
+                if( current_file_position == -1 ){
+
+                    Observer observer;
+                    observer.addLogEntry( "logport: error seeking for " + this->watched_file + ". Resetting to beginning of file." );
+
+                    sleep(1);
+
+                    //error is seeking, reset to 0
+                    this->watch.file_offset = 0;
+                    Database db;
+                    this->watch.saveOffset( db );
+
+                }
+
             }
+
+
 
 
         char log_read_buffer[LOG_READ_BUFFER_SIZE];
