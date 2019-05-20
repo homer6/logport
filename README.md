@@ -1,6 +1,6 @@
 # logport
 
-Logport watches log files and sends changes to kafka (one line per message).
+Logport watches log files and sends changes to kafka (one line per message). Logport enables your applications to easily produce observability types (obtypes): Metrics, application Events, Telemetry, Traces, and Logs (METTL). Once in Kafka, [Jetstream](https://github.com/homer6/jetstream) can ship your obtypes to compatible "heads" (indices or dashboards) such as Elasticsearch, Snowflake, Lightstep, S3, or Prometheus.
 
 ## Architecture Overview
 
