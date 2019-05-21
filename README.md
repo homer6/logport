@@ -2,7 +2,7 @@
 
 Logport empowers application developers and system administrators with modern observability. This is a turn-key solution for stable, performant, and scalable introspection into what your applications are doing, right now.
 
-Logport watches log files and sends changes to kafka (one line per message). Logport enables your applications to easily produce observability types (obtypes): Metrics, application Events, Telemetry, Traces, and Logs (METTL). Once in Kafka, [Jetstream](https://github.com/homer6/jetstream){:target="_blank"} can ship your obtypes to compatible "heads" (indices or dashboards) such as Elasticsearch, Snowflake, Lightstep, S3, or Prometheus.
+Logport watches log files and sends changes to kafka (one line per message). Logport enables your applications to easily produce observability types (obtypes): Metrics, application Events, Telemetry, Traces, and Logs (METTL). Once in Kafka, <a href="https://github.com/homer6/jetstream" target="_blank">Jetstream</a> can ship your obtypes to compatible "heads" (indices or dashboards) such as Elasticsearch, Snowflake, Lightstep, S3, or Prometheus.
 
 ## Architecture Overview
 
@@ -113,7 +113,7 @@ kafkacat -C -b 192.168.1.91 -o -10 -t my_logs
 ## Installation (Kubernetes)
 
 1. Ensure the target kafka topic exists and has acceptable retention.
-2. Add logport to your docker image (see the example [Dockerfile](https://github.com/homer6/logport/blob/master/Dockerfile){:target="_blank"}; Jetstream also has an example [Dockerfile](https://github.com/homer6/jetstream/blob/master/Dockerfile){:target="_blank"} ). Make logport the main `ENTRYPOINT` of your docker image. Your application and its arguments should follow.
+2. Add logport to your docker image (see the example <a href="https://github.com/homer6/logport/blob/master/Dockerfile" target="_blank">Dockerfile</a>; Jetstream also has an example <a href="https://github.com/homer6/jetstream/blob/master/Dockerfile" target="_blank">Dockerfile</a>). Make logport the main `ENTRYPOINT` of your docker image. Your application and its arguments should follow.
 3. Log to stdout/stderr.
 
 
