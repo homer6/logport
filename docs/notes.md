@@ -17,6 +17,7 @@ https://github.com/upmc-enterprises/elasticsearch-operator
 
 https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html
 
+https://www.datadoghq.com/blog/elasticsearch-performance-scaling-problems/
 
 ## Druid
 
