@@ -1,6 +1,6 @@
 # logport
 
-Logport empowers application developers and system administrators with modern observability. This is a turn-key solution for stable, performant, and, scalable introspection into what your applications are doing, right now.
+Logport empowers application developers and system administrators with modern observability. This is a turn-key solution for stable, performant, and scalable introspection into what your applications are doing, right now.
 
 Logport watches log files and sends changes to kafka (one line per message). Logport enables your applications to easily produce observability types (obtypes): Metrics, application Events, Telemetry, Traces, and Logs (METTL). Once in Kafka, [Jetstream](https://github.com/homer6/jetstream){:target="_blank"} can ship your obtypes to compatible "heads" (indices or dashboards) such as Elasticsearch, Snowflake, Lightstep, S3, or Prometheus.
 
