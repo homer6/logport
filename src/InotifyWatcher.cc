@@ -142,8 +142,12 @@ namespace logport{
 
                     //error is seeking, reset to 0
                     this->watch.file_offset = 0;
-                    Database db;
-                    this->watch.saveOffset( db );
+                    try{
+                        Database db;
+                        this->watch.saveOffset( db );
+                    }catch( std::exception &e ){
+                        observer.addLogEntry( "logport: failed to save offset for " + this->watched_file + " " + string(e.what()) );
+                    }
 
                 }else{
 
@@ -157,8 +161,14 @@ namespace logport{
 
                         //error is seeking, reset to 0
                         this->watch.file_offset = 0;
-                        Database db;
-                        this->watch.saveOffset( db );
+
+                        try{
+                            Database db;
+                            this->watch.saveOffset( db );
+                        }catch( std::exception &e ){
+                            observer.addLogEntry( "logport: failed to save offset for " + this->watched_file + " " + string(e.what()) );
+                        }
+                        
 
                     }else{
                         
