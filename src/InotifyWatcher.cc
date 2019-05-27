@@ -127,28 +127,16 @@ namespace logport{
 
 
         //set the offset to the last read position
-            int64_t current_file_size = get_file_size( this->watched_file );
+            {
 
-            if( this->watch.file_offset > current_file_size ){
+                int64_t current_file_size = get_file_size( this->watched_file );
 
-                Observer observer;
-                observer.addLogEntry( "logport: file size is greater than watched offset for " + this->watched_file + ". Resetting to beginning of file." );
+                Observer observer;               
+                observer.addLogEntry( "logport: starting to watch " + this->watched_file + " Filesize(" + logport::to_string<int64_t>(current_file_size) + ") SavedResumePoint(" +  logport::to_string<int64_t>(this->watch.file_offset) + ")" );
 
-                sleep(1);
+                if( this->watch.file_offset > current_file_size ){
 
-                //error is seeking, reset to 0
-                this->watch.file_offset = 0;
-                Database db;
-                this->watch.saveOffset( db );
-
-            }else{
-
-                off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
-
-                if( current_file_position == -1 ){
-
-                    Observer observer;
-                    observer.addLogEntry( "logport: error seeking for " + this->watched_file + ". Resetting to beginning of file." );
+                    observer.addLogEntry( "logport: file size is greater than watched offset for " + this->watched_file + ". Resetting to beginning of file." );
 
                     sleep(1);
 
@@ -157,9 +145,31 @@ namespace logport{
                     Database db;
                     this->watch.saveOffset( db );
 
+                }else{
+
+                    off64_t current_file_position = lseek64( watched_file_fd, this->watch.file_offset, SEEK_SET );
+
+                    if( current_file_position == -1 ){
+
+                        observer.addLogEntry( "logport: error seeking for " + this->watched_file + ". Resetting to beginning of file." );
+
+                        sleep(1);
+
+                        //error is seeking, reset to 0
+                        this->watch.file_offset = 0;
+                        Database db;
+                        this->watch.saveOffset( db );
+
+                    }else{
+                        
+                        observer.addLogEntry( "logport: resuming seeking for " + this->watched_file + " at offset: " + logport::to_string<off64_t>(current_file_position) + ", filesize: " + logport::to_string<int64_t>(current_file_size) );
+
+                    }
+
                 }
 
             }
+
 
 
 
