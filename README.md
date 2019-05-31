@@ -275,6 +275,19 @@ docker build .
 docker run 5e780f99e1f6 cat /proc/cpuinfo
 ```
 
+## Upgrading Logport
+```
+logport stop
+wget -O librdkafka.so.1 https://github.com/homer6/logport/blob/master/build/librdkafka.so.1?raw=true
+wget -O logport https://github.com/homer6/logport/blob/master/build/logport?raw=true
+chmod ugo+x logport
+sudo ./logport install
+rm librdkafka.so.1
+rm logport
+logport start
+```
+
+
 # Roadmap
 
 https://trello.com/b/o12As8ot/logport
