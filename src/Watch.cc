@@ -276,12 +276,20 @@ namespace logport{
 
 
         // add your pre-filtering code here
-        /*
-        if( 0 ){
-            filtered_log_line = "{\"log_type\":\"tombstone\"}";
-            return filtered_log_line;
+        size_t card_number_location = filtered_log_line.find( "\"card_number\":\"" );
+        if( card_number_location != std::string::npos ){
+            //card_number key found
+
+            size_t redacted_location = filtered_log_line.find( "\"card_number\":\"XXX" );
+
+            if( redacted_location == std::string::npos ){
+                //if unredacted credit_card found
+                filtered_log_line = "{\"@timestamp\":" + get_timestamp() + ",\"log\":\"tombstone\"}";
+                return filtered_log_line;
+            }
+
         }
-        */
+        
 
 
         size_t log_length = filtered_log_line.size();
@@ -291,7 +299,7 @@ namespace logport{
         }
 
 
-        string json_meta = "{\"shipped_at\":" + get_timestamp() + ",\"host\":\"" + this->hostname + "\",\"source\":\"" + this->watched_filepath + "\",\"prd\":\"" + this->product_code + "\"";
+        string json_meta = "{\"@timestamp\":" + get_timestamp() + ",\"host\":\"" + this->hostname + "\",\"source\":\"" + this->watched_filepath + "\",\"prd\":\"" + this->product_code + "\"";
 
 
         //unstructured single-line log entry

@@ -132,19 +132,19 @@ text and will escape the unstructured text to be embedded in the JSON produced b
 
 Unstructured Original Line: `my unstructured original log line abc123`
 
-Unstructured Kafka Message: `{"shipped_at":1555955180.385583,"log":"my unstructured original log line abc123"}`
+Unstructured Kafka Message: `{"@timestamp":1555955180.385583,"log":"my unstructured original log line abc123"}`
 
 ### Embedded JSON Example
 
 JSON Original Line: `{"my":"custom","json":"object"}`
 
-JSON Kafka Message: `{"shipped_at":1555955180.385583,"log_obj":{"my":"custom","json":"object"}}`
+JSON Kafka Message: `{"@timestamp":1555955180.385583,"log_obj":{"my":"custom","json":"object"}}`
 
 ### Additional Fields
 
 In both of the above cases, logport will include the additional fields of `host`, `source`, and `prd` (product code).
 
-`{"shipped_at":1556352653.816769412,"host":"my.sample.hostname","source":"/usr/local/logport/logport.log","prd":"prd4096","log":"hello world"}`
+`{"@timestamp":1556352653.816769,"host":"my.sample.hostname","source":"/usr/local/logport/logport.log","prd":"prd4096","log":"hello world"}`
 
 
 ## logport --help
