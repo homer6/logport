@@ -162,6 +162,33 @@ namespace logport{
         }
         */
 
+
+        const string queue_buffering_max_ms = "1000";
+        if( rd_kafka_conf_set(conf, "queue.buffering.max.ms", queue_buffering_max_ms.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+            rd_kafka_conf_destroy(conf);
+            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for queue.buffering.max.ms: ") + errstr );
+        }
+
+        const string batch_num_messages = "5000";
+        if( rd_kafka_conf_set(conf, "batch.num.messages", batch_num_messages.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+            rd_kafka_conf_destroy(conf);
+            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for batch.num.messages: ") + errstr );
+        }
+
+        const string message_send_max_retries = "3";
+        if( rd_kafka_conf_set(conf, "message.send.max.retries", message_send_max_retries.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+            rd_kafka_conf_destroy(conf);
+            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for message.send.max.retries: ") + errstr );
+        }
+
+        const string max_in_flight = "100";
+        if( rd_kafka_conf_set(conf, "max.in.flight", max_in_flight.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+            rd_kafka_conf_destroy(conf);
+            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for max.in.flight: ") + errstr );
+        }
+
+
+
         /* Set the delivery report callback.
          * This callback will be called once per message to inform
          * the application if delivery succeeded or failed.
