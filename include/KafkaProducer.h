@@ -21,7 +21,11 @@ namespace logport{
             KafkaProducer( Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log );
             ~KafkaProducer();
 
-            void produce( const string& message ); //throws on failure
+            void produce( const string& message ); 
+            //throws on failure  
+            //returns on success
+            //blocks on queue full
+            
 
             //void produceBatch() rd_kafka_produce_batch  TODO:implement
 

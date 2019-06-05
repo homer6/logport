@@ -59,6 +59,9 @@
 #include <fcntl.h>
 
 
+#include <map>
+using std::map;
+
 
 namespace logport{
 
@@ -148,45 +151,29 @@ namespace logport{
             throw std::runtime_error( string("KafkaProducer: Failed to set configuration for bootstrap.servers: ") + errstr );
         }
 
-        const string message_timeout_ms = "5000"; //5 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
-        if( rd_kafka_conf_set(conf, "message.timeout.ms", message_timeout_ms.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for message.timeout.ms: ") + errstr );
+
+        map<string,string> rd_kafka_settings;
+
+        rd_kafka_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
+        rd_kafka_settings["queue.buffering.max.ms"] = "1000";
+        rd_kafka_settings["batch.num.messages"] = "10000";
+        rd_kafka_settings["message.send.max.retries"] = "3";
+        rd_kafka_settings["max.in.flight.requests.per.connection"] = "1";
+        //rd_kafka_settings["socket.max.fails"] = "100";
+        rd_kafka_settings["queue.buffering.max.kbytes"] = "50000";
+        //rd_kafka_settings["queue.buffering.max.messages"] = "100000";
+
+
+        for( map<string,string>::iterator it = rd_kafka_settings.begin(); it != rd_kafka_settings.end(); it++ ){
+
+            const string setting_key = it->first;
+            const string setting_value = it->second;
+            if( rd_kafka_conf_set(conf, setting_key.c_str(), setting_value.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
+                rd_kafka_conf_destroy(conf);
+                throw std::runtime_error( string("KafkaProducer: Failed to set configuration for ") + setting_key + ": " + errstr );
+            }
+
         }
-
-        /*
-        const string socket_max_fails = "100";
-        if( rd_kafka_conf_set(conf, "socket.max.fails", socket_max_fails.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for socket.max.fails: ") + errstr );
-        }
-        */
-
-
-        const string queue_buffering_max_ms = "1000";
-        if( rd_kafka_conf_set(conf, "queue.buffering.max.ms", queue_buffering_max_ms.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for queue.buffering.max.ms: ") + errstr );
-        }
-
-        const string batch_num_messages = "10000";
-        if( rd_kafka_conf_set(conf, "batch.num.messages", batch_num_messages.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for batch.num.messages: ") + errstr );
-        }
-
-        const string message_send_max_retries = "3";
-        if( rd_kafka_conf_set(conf, "message.send.max.retries", message_send_max_retries.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for message.send.max.retries: ") + errstr );
-        }
-
-        const string max_in_flight_requests_per_connection = "5";
-        if( rd_kafka_conf_set(conf, "max.in.flight.requests.per.connection", max_in_flight_requests_per_connection.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-            rd_kafka_conf_destroy(conf);
-            throw std::runtime_error( string("KafkaProducer: Failed to set configuration for max.in.flight.requests.per.connection: ") + errstr );
-        }
-
 
 
         /* Set the delivery report callback.
@@ -384,8 +371,6 @@ namespace logport{
                  * Failed to *enqueue* message for producing.
                  */
 
-                this->observer.addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
-
                 /* Poll to handle delivery reports */
                 if (rd_kafka_last_error() ==
                     RD_KAFKA_RESP_ERR__QUEUE_FULL) {
@@ -404,6 +389,9 @@ namespace logport{
 
                         goto retry;
                 }
+
+                this->observer.addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
+
 
         } else {
 

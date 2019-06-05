@@ -224,7 +224,6 @@ namespace logport{
                 }
 
                 this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
-
                 this->kafka_producer.produce( this->filterLogLine("starting up - replaying undelivered log") );
 
                 //ingest the undelivered_log contents
@@ -441,7 +440,12 @@ namespace logport{
 
                             //update and save the committed offset back to the first byte
                             this->watch.file_offset = 0;
-                            this->watch.saveOffset( this->db );
+                            try{
+                                this->watch.saveOffset( this->db );
+                            }catch( std::exception &e ){
+                                Observer observer;
+                                observer.addLogEntry( "logport: failed to save offset for " + this->watched_file + " " + string(e.what()) );
+                            }
 
                         }
 
@@ -476,10 +480,14 @@ namespace logport{
                 Database db;
                 off64_t current_file_position = lseek64( watched_file_fd, 0, SEEK_CUR );
                 this->watch.file_offset = current_file_position - previous_log_partial.size();
-                this->watch.saveOffset( db );
 
                 Observer observer;
-                observer.addLogEntry( "logport: saved " + this->watch.watched_filepath + " offset on shutdown (" + logport::to_string<off64_t>(current_file_position) + ")" );
+                try{
+                    this->watch.saveOffset( db );
+                    observer.addLogEntry( "logport: saved " + this->watch.watched_filepath + " offset on shutdown (" + logport::to_string<off64_t>(current_file_position) + ")" );
+                }catch( std::exception &e ){
+                    observer.addLogEntry( "logport: failed to save offset for " + this->watched_file + " " + string(e.what()) );
+                }
 
             }
 

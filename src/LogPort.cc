@@ -1445,7 +1445,7 @@ namespace logport{
 
 				current_watch.watched_filepath = "process_exit";
 				string filtered_log_line = current_watch.filterLogLine( log_line );
-				kafka_producer.produce( filtered_log_line );
+                kafka_producer.produce( filtered_log_line );
 				
 			}
 
@@ -1540,7 +1540,7 @@ namespace logport{
                                     string filtered_log_line = current_watch.filterLogLine( sent_message );
 
                                     //handle consecutive newline characters (by dropping them)
-                                    kafka_producer.produce( filtered_log_line );
+					                kafka_producer.produce( filtered_log_line );
                                     kafka_producer.poll();
 
                                     //also write to this stdout
@@ -1644,7 +1644,7 @@ namespace logport{
                                     string filtered_log_line = current_watch.filterLogLine( sent_message );
 
                                     //handle consecutive newline characters (by dropping them)
-                                    kafka_producer.produce( filtered_log_line );
+					                kafka_producer.produce( filtered_log_line );
                                     kafka_producer.poll();
 
                                     //also write to this stderr
