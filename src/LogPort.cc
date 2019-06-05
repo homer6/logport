@@ -1367,7 +1367,10 @@ namespace logport{
 		LevelTriggeredEpollWatcher child_stdout_watcher( child_stdout_pipe[0] );
 		LevelTriggeredEpollWatcher child_stderr_watcher( child_stderr_pipe[0] );
 
-		KafkaProducer kafka_producer( observer, watch.brokers, watch.topic, watch.undelivered_log_filepath );
+		Database db;
+		map<string,string> settings = db.getSettings();
+
+		KafkaProducer kafka_producer( settings, observer, watch.brokers, watch.topic, watch.undelivered_log_filepath );
 
 		bool continue_reading = true;
 

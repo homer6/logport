@@ -4,6 +4,9 @@
 #include <string>
 using std::string;
 
+#include <map>
+using std::map;
+
 #include <librdkafka/rdkafka.h>
 
 namespace logport{
@@ -18,14 +21,14 @@ namespace logport{
     class KafkaProducer{
 
         public:
-            KafkaProducer( Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log );
+            KafkaProducer( const map<string,string>& settings, Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log );
             ~KafkaProducer();
 
             void produce( const string& message ); 
             //throws on failure  
             //returns on success
             //blocks on queue full
-            
+
 
             //void produceBatch() rd_kafka_produce_batch  TODO:implement
 
@@ -37,6 +40,7 @@ namespace logport{
             void poll( int timeout_ms = 0 );
 
         protected:
+            const map<string,string>& settings;
             Observer& observer;
 
             string brokers_list;

@@ -129,8 +129,8 @@ namespace logport{
 
 
 
-    KafkaProducer::KafkaProducer( Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log )
-        :observer(observer), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
+    KafkaProducer::KafkaProducer( const map<string,string>& settings, Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log )
+        :settings(settings), observer(observer), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
     {
 
         undelivered_log_fd_static = -1;
@@ -155,13 +155,38 @@ namespace logport{
         map<string,string> rd_kafka_settings;
 
         rd_kafka_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for rd_kafka_flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
-        rd_kafka_settings["queue.buffering.max.ms"] = "1000";
         rd_kafka_settings["batch.num.messages"] = "10000";
         rd_kafka_settings["message.send.max.retries"] = "3";
         rd_kafka_settings["max.in.flight.requests.per.connection"] = "1";
         //rd_kafka_settings["socket.max.fails"] = "100";
+
         rd_kafka_settings["queue.buffering.max.kbytes"] = "50000";
-        //rd_kafka_settings["queue.buffering.max.messages"] = "100000";
+        rd_kafka_settings["queue.buffering.max.ms"] = "1000";
+        rd_kafka_settings["queue.buffering.max.messages"] = "500000";
+
+
+        //copy over the overridden logport rdkafka producer settings
+        for( map<string,string>::const_iterator it = this->settings.begin(); it != this->settings.end(); it++ ){
+
+            const string setting_key = it->first;
+
+            const string key_prefix = setting_key.substr(0,17);  //"rdkafka.producer."
+
+            string rd_kafka_setting_key;
+
+            if( key_prefix == "rdkafka.producer." ){
+                rd_kafka_setting_key = setting_key.substr(17, string::npos);
+
+                const string setting_value = it->second;
+
+                if( rd_kafka_setting_key.size() > 0 ){
+                    rd_kafka_settings[ rd_kafka_setting_key ] = setting_value;
+                }
+                
+            }
+
+        }
+
 
 
         for( map<string,string>::iterator it = rd_kafka_settings.begin(); it != rd_kafka_settings.end(); it++ ){

@@ -147,7 +147,9 @@ namespace logport{
             {
                 Database db;
 
-                KafkaProducer kafka_producer( observer, this->brokers, this->topic, this->undelivered_log_filepath );  
+                map<string,string> settings = db.getSettings();
+
+                KafkaProducer kafka_producer( settings, observer, this->brokers, this->topic, this->undelivered_log_filepath );  
 
                 InotifyWatcher watcher( db, kafka_producer, *this, observer );  //expects undelivered log to exist
                 inotify_watcher_ptr = &watcher;
