@@ -43,6 +43,7 @@ logport enable
 logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
+logport set rdkafka.producer.queue.buffering.max.messages 1000
 #[THIS VALUE DEFAULTS TO SYSTEM HOSTNAME -- ONLY SPECIFY TO OVERRIDE] logport set default.hostname my.sample.hostname
 logport watch /usr/local/logport/*.log /var/log/syslog
 logport watches
@@ -94,6 +95,17 @@ logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
 logport set default.hostname my.sample.hostname
+
+
+# You can tune the underlying rdkafka producer with custom settings
+# The below setting controls the message throughput. Set to lower
+# if you're getting message timeouts. 1000 is pretty low. Increase
+# for higher throughput. The default is 500,000; but, that may
+# result in message timeouts for some connections.
+# see: https://github.com/edenhill/librdkafka/blob/master/INTRODUCTION.md
+# see: https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
+# You just need to prefix any rdkafka setting with "rdkafka.producer."
+logport set rdkafka.producer.queue.buffering.max.messages 1000
 
 # If we want to ship logport's own logs, we can add them to be watched, too.
 # By not providing the watch parameters here, we'll be using the default settings
