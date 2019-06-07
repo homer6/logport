@@ -9,6 +9,7 @@ using std::string;
 #include "Watch.h"
 #include "PreparedStatement.h"
 
+#include <unistd.h>
 
 
 namespace logport{
@@ -17,7 +18,21 @@ namespace logport{
 
         this->db = NULL;
 
-        int result_code = sqlite3_open_v2( "/usr/local/logport/logport.db", &this->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_open_v2( "/usr/local/logport/logport.db", &this->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
+         
 
         if( result_code != SQLITE_OK ){
 
@@ -72,7 +87,21 @@ namespace logport{
 
         char *error_message = 0;
 
-        int result_code = sqlite3_exec( this->db, command.c_str(), NULL, 0, &error_message );
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_exec( this->db, command.c_str(), NULL, 0, &error_message );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
+
         if( result_code != SQLITE_OK ){
 
             string error_message_string( error_message );

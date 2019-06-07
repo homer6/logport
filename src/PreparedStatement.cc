@@ -10,6 +10,7 @@ using std::string;
 #include <unistd.h>
 
 
+
 namespace logport{
 
     PreparedStatement::PreparedStatement( const Database& database, const string& statement_sql ){
@@ -19,7 +20,21 @@ namespace logport{
         this->last_step_result = SQLITE_ERROR;
         this->column_count = 0;
 
-        int result_code = sqlite3_prepare_v3( this->db, statement_sql.c_str(), static_cast<int>(statement_sql.size()), 0, &this->statement, NULL );
+
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_prepare_v3( this->db, statement_sql.c_str(), static_cast<int>(statement_sql.size()), 0, &this->statement, NULL );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
 
         if( result_code != SQLITE_OK ){
 
@@ -122,7 +137,20 @@ namespace logport{
 
         // https://sqlite.org/c3ref/step.html
 
-        int result_code = sqlite3_step( this->statement );
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_step( this->statement );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
 
         this->last_step_result = result_code;
 
@@ -151,7 +179,20 @@ namespace logport{
 
         // https://sqlite.org/c3ref/reset.html
 
-        int result_code = sqlite3_reset( this->statement );
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_reset( this->statement );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
 
         this->last_step_result = SQLITE_ERROR;
         this->column_count = 0;
@@ -173,7 +214,21 @@ namespace logport{
 
         // https://sqlite.org/c3ref/clear_bindings.html
 
-        int result_code = sqlite3_clear_bindings( this->statement );
+        int attempt = 0;
+        int result_code;
+
+        while( attempt < 1000 ){
+
+            result_code = sqlite3_clear_bindings( this->statement );
+            
+            if( result_code != SQLITE_BUSY && result_code != SQLITE_LOCKED ){
+                break;                
+            }
+            usleep(10000);  // 10ms
+            attempt++;
+
+        }
+
 
         if( result_code != SQLITE_OK ){
 
