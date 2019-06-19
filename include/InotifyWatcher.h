@@ -16,12 +16,12 @@ namespace logport{
 
     class Database;
     class Watch;
-    class Observer;
+    class LogPort;
 
     class InotifyWatcher{
 
         public:
-            InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, Observer& observer );
+            InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, LogPort* logport );
             ~InotifyWatcher();
 
             void startWatching(); //throws on failure
@@ -48,7 +48,7 @@ namespace logport{
             int inotify_watch_descriptor;
 
             Watch& watch;
-            Observer& observer;
+            LogPort* logport;
 
     };
 

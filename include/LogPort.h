@@ -116,6 +116,7 @@ namespace logport{
 	    public:
 	     	bool run;
 	     	bool reload_required;
+	     	bool watches_paused;
 	     	string command;
 	     	vector<string> command_line_arguments;
 	     	string current_version;

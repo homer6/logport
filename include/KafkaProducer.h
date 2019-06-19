@@ -11,7 +11,7 @@ using std::map;
 
 namespace logport{
 
-    class Observer;
+    class LogPort;
 
 
     /*
@@ -21,7 +21,7 @@ namespace logport{
     class KafkaProducer{
 
         public:
-            KafkaProducer( const map<string,string>& settings, Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log );
+            KafkaProducer( const map<string,string>& settings, LogPort* logport, const string &brokers_list, const string &topic, const string &undelivered_log );
             ~KafkaProducer();
 
             void produce( const string& message ); 
@@ -41,7 +41,7 @@ namespace logport{
 
         protected:
             const map<string,string>& settings;
-            Observer& observer;
+            LogPort* logport;
 
             string brokers_list;
             string topic;

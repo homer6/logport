@@ -4,6 +4,7 @@
 #include "Database.h"
 #include "Common.h"
 #include "Observer.h"
+#include "LogPort.h"
 
 #include "InotifyWatcher.h"
 #include "KafkaProducer.h"
@@ -132,7 +133,7 @@ namespace logport{
 
 
 
-    pid_t Watch::start( Observer& observer ){
+    pid_t Watch::start( LogPort* logport ){
 
         pid_t pid = fork();
 
@@ -140,7 +141,7 @@ namespace logport{
 
             //child
 
-            observer.addLogEntry( "logport: Starting watch: " + this->watched_filepath );
+            logport->getObserver().addLogEntry( "logport: Starting watch: " + this->watched_filepath );
 
             int exit_code = 0;
 
@@ -149,9 +150,9 @@ namespace logport{
 
                 map<string,string> settings = db.getSettings();
 
-                KafkaProducer kafka_producer( settings, observer, this->brokers, this->topic, this->undelivered_log_filepath );  
+                KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );  
 
-                InotifyWatcher watcher( db, kafka_producer, *this, observer );  //expects undelivered log to exist
+                InotifyWatcher watcher( db, kafka_producer, *this, logport );  //expects undelivered log to exist
                 inotify_watcher_ptr = &watcher;
 
                 //register signal handler
@@ -160,10 +161,10 @@ namespace logport{
 
                 try{
                      watcher.startWatching(); //main loop; blocks
-                     observer.addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
+                     logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
                      exit_code = 0;
                 }catch( std::exception &e ){
-                     observer.addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
+                     logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
                      exit_code = 1;
                 }
             }
@@ -178,11 +179,11 @@ namespace logport{
 
             if( errno ){
 
-                observer.addLogEntry( "logport: Failed to fork: errno: " + logport::to_string<int>(errno) );
+                logport->getObserver().addLogEntry( "logport: Failed to fork: errno: " + logport::to_string<int>(errno) );
 
             }else{
 
-                observer.addLogEntry( "logport: Failed to fork." );
+                logport->getObserver().addLogEntry( "logport: Failed to fork." );
 
             }
             this->pid = -1;
@@ -193,7 +194,7 @@ namespace logport{
             //parent
 
             //returns the pid of the child
-            observer.addLogEntry( "logport: Started watch (PID: " + logport::to_string<pid_t>(pid) + ")" );
+            logport->getObserver().addLogEntry( "logport: Started watch (PID: " + logport::to_string<pid_t>(pid) + ")" );
 
             this->pid = pid;
 
@@ -211,7 +212,7 @@ namespace logport{
 
 
 
-    void Watch::stop( Observer& observer ){
+    void Watch::stop( LogPort* logport ){
 
         int status;
 
@@ -220,18 +221,18 @@ namespace logport{
 
         //terminate gracefully first, then forcefully if graceful shutdown lasts longer than 20s
         if( kill(this->pid, SIGINT) == -1 ){
-            observer.addLogEntry( "logport: failed to kill watch with SIGINT." );
+            logport->getObserver().addLogEntry( "logport: failed to kill watch with SIGINT." );
             return;
         }
         
-        observer.addLogEntry( "logport: attempting graceful watch shutdown..." );
+        logport->getObserver().addLogEntry( "logport: attempting graceful watch shutdown..." );
 
         //sleep(20);
         sleep(7);
         
         //this waitpid will clear the /proc/PID filesystem record
         pid_t child_pid2 = waitpid(-1, &status, WUNTRACED | WNOHANG );
-        observer.addLogEntry( "logport: child_pid2: " + logport::to_string<pid_t>(child_pid2) );
+        logport->getObserver().addLogEntry( "logport: child_pid2: " + logport::to_string<pid_t>(child_pid2) );
         //sleep(2);
         sleep(1);
 
@@ -239,7 +240,7 @@ namespace logport{
                             
             //check to see if this->pid is still running
             int getpgid_result = getpgid(this->pid);
-            observer.addLogEntry( "logport: getpgid_result: " + logport::to_string<int>(getpgid_result) );
+            logport->getObserver().addLogEntry( "logport: getpgid_result: " + logport::to_string<int>(getpgid_result) );
             bool watch_still_running = true;
             if( getpgid_result == -1 ){
                 watch_still_running = false;
@@ -250,20 +251,20 @@ namespace logport{
 
                 //verify the process name before killing SIGKILL
                 const string verified_process_name = proc_status_get_name( this->pid );
-                observer.addLogEntry( "logport: verified process name: " + verified_process_name );
+                logport->getObserver().addLogEntry( "logport: verified process name: " + verified_process_name );
 
                 if( verified_process_name == "logport" ){
-                    observer.addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " required a forceful exit." );
+                    logport->getObserver().addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " required a forceful exit." );
                     if( kill(this->pid, SIGKILL) == -1 ){
-                        observer.addLogEntry( "logport: failed to kill watch " + logport::to_string<pid_t>(this->pid) + " with SIGKILL." );
+                        logport->getObserver().addLogEntry( "logport: failed to kill watch " + logport::to_string<pid_t>(this->pid) + " with SIGKILL." );
                     }
                 }else{
-                    observer.addLogEntry( "logport: same PID found, but different program name." );
+                    logport->getObserver().addLogEntry( "logport: same PID found, but different program name." );
                 }
 
             }else{
 
-                observer.addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " has exited gracefully." );
+                logport->getObserver().addLogEntry( "logport: watch PID " + logport::to_string<pid_t>(this->pid) + " has exited gracefully." );
 
             }
 

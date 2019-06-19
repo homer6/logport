@@ -16,7 +16,7 @@ namespace logport{
 
 	class PreparedStatement;
 	class Database;
-	class Observer;
+	class LogPort;
 
 	class Watch{
 
@@ -41,8 +41,8 @@ namespace logport{
 
 
 	    	
-	    	pid_t start( Observer& observer );
-	    	void stop( Observer& observer );
+	    	pid_t start( LogPort* logport );
+	    	void stop( LogPort* logport );
 
 	    	void savePid( Database& db );
 	    	void saveOffset( Database& db );

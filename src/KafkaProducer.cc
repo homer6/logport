@@ -1,7 +1,7 @@
 #include "KafkaProducer.h"
 
-#include "Observer.h"
 #include "Common.h"
+#include "LogPort.h"
 
 
 /*
@@ -67,7 +67,7 @@ namespace logport{
 
 
     static int undelivered_log_fd_static;
-    static Observer* observer_ptr;
+    static LogPort* logport_ptr;
 
     /**
      * @brief Message delivery report callback.
@@ -84,17 +84,17 @@ namespace logport{
 
         if( rkmessage->err ){
 
-            observer_ptr->addLogEntry( "Message delivery failed: " + string(rd_kafka_err2str(rkmessage->err)) );
+            logport_ptr->getObserver().addLogEntry( "Message delivery failed: " + string(rd_kafka_err2str(rkmessage->err)) );
 
             if( undelivered_log_fd_static != -1 ){
 
                 int result_bytes = write( undelivered_log_fd_static, rkmessage->payload, rkmessage->len );
 
                 if( result_bytes < 0 ){
-                    observer_ptr->addLogEntry( "Failed to write to undelivered_log. errno: " + logport::to_string<int>(errno) );
+                    logport_ptr->getObserver().addLogEntry( "Failed to write to undelivered_log. errno: " + logport::to_string<int>(errno) );
                 }else{
                     if( (size_t)result_bytes != rkmessage->len ){
-                        observer_ptr->addLogEntry( "Write mismatch in undelivered_log. " + logport::to_string<size_t>(rkmessage->len) + " bytes expected but only " + logport::to_string<int>(result_bytes) + " written." );
+                        logport_ptr->getObserver().addLogEntry( "Write mismatch in undelivered_log. " + logport::to_string<size_t>(rkmessage->len) + " bytes expected but only " + logport::to_string<int>(result_bytes) + " written." );
                     }
                 }
 
@@ -104,14 +104,14 @@ namespace logport{
 
                     result_bytes = write( undelivered_log_fd_static, newline_buffer, 1 );
                     if( result_bytes < 0 ){
-                        observer_ptr->addLogEntry( "Failed to write to undelivered_log newline. errno: " + logport::to_string<int>(errno) );
+                        logport_ptr->getObserver().addLogEntry( "Failed to write to undelivered_log newline. errno: " + logport::to_string<int>(errno) );
                     }
                 
 
             }else{
 
 
-                observer_ptr->addLogEntry( "Failed to record undelivered message." );
+                logport_ptr->getObserver().addLogEntry( "Failed to record undelivered message." );
 
             }
 
@@ -129,12 +129,12 @@ namespace logport{
 
 
 
-    KafkaProducer::KafkaProducer( const map<string,string>& settings, Observer& observer, const string &brokers_list, const string &topic, const string &undelivered_log )
-        :settings(settings), observer(observer), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
+    KafkaProducer::KafkaProducer( const map<string,string>& settings, LogPort* logport, const string &brokers_list, const string &topic, const string &undelivered_log )
+        :settings(settings), logport(logport), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
     {
 
         undelivered_log_fd_static = -1;
-        observer_ptr = &observer;
+        logport_ptr = logport;
 
         /*
          * Create Kafka client configuration place-holder
@@ -243,7 +243,7 @@ namespace logport{
         /* Wait for final messages to be delivered or fail.
          * rd_kafka_flush() is an abstraction over rd_kafka_poll() which
          * waits for all messages to be delivered. */
-        this->observer.addLogEntry( "Flushing final kafka messages." );
+        this->logport->getObserver().addLogEntry( "Flushing final kafka messages." );
 
         rd_kafka_flush(this->rk, 6 * 1000 /* wait for max 6 seconds */);
         //this wait must be longer than the message.timeout.ms in the conf above or the messages will be lost and not stored in the undelivered_log
@@ -260,7 +260,7 @@ namespace logport{
             close( this->undelivered_log_fd );
         }
 
-        this->observer.addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );
+        this->logport->getObserver().addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );
 
     }
 
@@ -415,7 +415,7 @@ namespace logport{
                         goto retry;
                 }
 
-                this->observer.addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
+                this->logport->getObserver().addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
 
 
         } else {

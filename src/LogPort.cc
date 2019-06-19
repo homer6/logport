@@ -50,6 +50,7 @@ static logport::LogPort* logport_app_ptr;
 static void signal_handler_stop( int sig ){
     
     logport_app_ptr->run = false;
+    logport_app_ptr->watches_paused = false;  //we "unpause" the watches so that the SIGINT can win over the pauses
 
     logport::Observer observer;
 
@@ -69,11 +70,37 @@ static void signal_handler_reload_config( int /*sig*/ ){
 
 }
 
+static void signal_handler_pause_resume( int sig ){
+
+    logport::Observer observer;
+
+    switch( sig ){
+
+    	case SIGUSR1:
+    		observer.addLogEntry( "logport: SIGUSR1 received. Stopping all watches." );
+    		logport_app_ptr->watches_paused = true;
+    		logport_app_ptr->run = false;    		
+    		break;
+
+    	case SIGUSR2:
+    		logport_app_ptr->run = true;
+    		logport_app_ptr->watches_paused = false;
+    		observer.addLogEntry( "logport: SIGUSR2 received. Resuming all watches." ); 
+    		logport_app_ptr->closeObserver();
+    		break;
+
+    	default:
+    		observer.addLogEntry( "logport: " + logport::to_string<int>(sig)  + " received." );
+
+    };
+
+}
+
 
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), current_version("0.2.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
+		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), watches_paused(false), current_version("0.2.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
 	{
 
 
@@ -123,8 +150,13 @@ namespace logport{
 		logport_app_ptr = this;
 
         // Signal handler for clean shutdown 
-        signal( SIGINT | SIGTERM, signal_handler_stop );
+        signal( SIGINT, signal_handler_stop );
+        signal( SIGTERM, signal_handler_stop );
+
         signal( SIGHUP, signal_handler_reload_config );
+
+        signal( SIGUSR1, signal_handler_pause_resume );
+        signal( SIGUSR2, signal_handler_pause_resume );
 
 	}
 
@@ -1315,8 +1347,6 @@ namespace logport{
 
 		//process any environment variables here, if necessary
 
-		Observer& observer = this->getObserver();
-
 
 		/*
 		for( vector<string>::const_iterator it = this->additional_arguments.begin(); it != this->additional_arguments.end(); it++ ){
@@ -1332,17 +1362,17 @@ namespace logport{
 			int child_stderr_pipe[2];
 
 			if( pipe(child_stdin_pipe) != 0 ){
-				observer.addLogEntry( "logport: failed to create stdin pipe" );
+				this->getObserver().addLogEntry( "logport: failed to create stdin pipe" );
 				return;
 			}
 
 			if( pipe(child_stdout_pipe) != 0 ){
-				observer.addLogEntry( "logport: failed to create stdout pipe" );
+				this->getObserver().addLogEntry( "logport: failed to create stdout pipe" );
 				return;
 			}
 
 			if( pipe(child_stderr_pipe) != 0 ){
-				observer.addLogEntry( "logport: failed to create stderr pipe" );
+				this->getObserver().addLogEntry( "logport: failed to create stderr pipe" );
 				return;
 			}
 
@@ -1352,7 +1382,7 @@ namespace logport{
 
 
 		if( child_process_id == -1 ){
-			observer.addLogEntry( "logport: failed to start adopted executable" );
+			this->getObserver().addLogEntry( "logport: failed to start adopted executable" );
 			return;
 		}
 
@@ -1370,7 +1400,7 @@ namespace logport{
 		Database db;
 		map<string,string> settings = db.getSettings();
 
-		KafkaProducer kafka_producer( settings, observer, watch.brokers, watch.topic, watch.undelivered_log_filepath );
+		KafkaProducer kafka_producer( settings, this, watch.brokers, watch.topic, watch.undelivered_log_filepath );
 
 		bool continue_reading = true;
 
@@ -1395,7 +1425,7 @@ namespace logport{
 
 			if( current_child_pid == -1 ){
 				//error, or no child processes
-                observer.addLogEntry( "logport: adopt waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
+                this->getObserver().addLogEntry( "logport: adopt waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
                 continue_reading = false;
 
                 //cout << "error, or no child processes" << endl;
@@ -1971,13 +2001,19 @@ namespace logport{
 
 		const char *logrotate_file_contents = 
 "/usr/local/logport/*.log\n"
-"{"
+"{\n"
 "        rotate 7\n"
 "        daily\n"
 "        delaycompress\n"
 "        missingok\n"
 "        notifempty\n"
 "        compress\n"
+"        firstaction\n"
+"            kill -USR1 `cat /var/run/logport.pid`\n"
+"        endscript\n"
+"        lastaction\n"
+"            kill -USR2 `cat /var/run/logport.pid`\n"
+"        endscript\n"
 "}\n";
 
 		std::ofstream init_d_file;
@@ -2043,9 +2079,7 @@ namespace logport{
 
 	void LogPort::startWatches(){
 
-		Observer& observer = this->getObserver();
-
-		observer.addLogEntry( "logport: started" );
+		this->getObserver().addLogEntry( "logport: started" );
 
 
 		vector<Watch> watches;
@@ -2058,14 +2092,14 @@ namespace logport{
 		 
 		if( watches.size() == 0 ){
 
-			observer.addLogEntry( "Started logport service with no files being watched." );
+			this->getObserver().addLogEntry( "Started logport service with no files being watched." );
 
 		}else{
 
 			for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
 				Watch& watch = *it;
 				//this forks for each watch
-				watch.start( observer );
+				watch.start( this );
 			}
 
 		}
@@ -2074,17 +2108,43 @@ namespace logport{
 		bool have_initiated_all_stop = false;
 		bool shutdown_complete = false;
 
+		bool initiate_resuming_of_watches = false;
+
+
 		int status;
 
-		while( !shutdown_complete ){
+		while( this->run || ( !shutdown_complete && !have_initiated_all_stop ) || this->watches_paused ){
 
 			//WNOHANG makes this return immediately (so we can monitor RSS)
 			pid_t child_pid = waitpid(-1, &status, WUNTRACED | WNOHANG | WCONTINUED );
 			//pid_t child_pid = waitpid( -1, &status, WUNTRACED | WCONTINUED );
 
 
+			/*
+			cout << "-------------------" << endl;
+			cout << "this->run: " << this->run << endl;
+			cout << "shutdown_complete: " << shutdown_complete << endl;
+			cout << "this->watches_paused " << this->watches_paused << endl;
+			cout << "have_initiated_all_stop " << have_initiated_all_stop << endl;
+			cout << "initiate_resuming_of_watches " << initiate_resuming_of_watches << endl;
+			*/
+
+
+
+			// determine if we should resume watches after they were paused
+				if( shutdown_complete && this->run == true && this->watches_paused == false && have_initiated_all_stop == true ){
+
+					initiate_resuming_of_watches = true;
+
+					//reset others to resume normal operations
+					have_initiated_all_stop = false;
+					shutdown_complete = false;
+
+				}
+
+
 			//determine if all watches have shutdown
-				if( this->run == false && shutdown_complete == false ){
+				if( this->run == false && have_initiated_all_stop == true && shutdown_complete == false ){
 
 					bool some_watches_still_running = false;
 
@@ -2102,8 +2162,8 @@ namespace logport{
 				}
 
 
-			//determine if some watches should startup (if reload is required)
-				if( this->reload_required == true && this->run == true && shutdown_complete == false && have_initiated_all_stop == false ){
+			//determine if some watches should startup (if reload is required or resuming watches)
+				if( ( this->reload_required == true || initiate_resuming_of_watches == true ) && this->run == true && have_initiated_all_stop == false ){
 
 					//reload from db
 					{
@@ -2115,11 +2175,21 @@ namespace logport{
 						Watch& watch = *it;
 						if( watch.pid < 0 ){
 							//not running watch; let's start it
-							watch.start( observer );
+							watch.start( this );
 						}
 					}
 
-					this->reload_required = false;
+					if( this->reload_required ){
+						this->reload_required = false;
+					}					
+
+					if( initiate_resuming_of_watches ){
+						initiate_resuming_of_watches = false;
+					}
+
+					//reset others to resume normal operations
+					shutdown_complete = false;
+					have_initiated_all_stop = false;
 
 				}
 
@@ -2127,9 +2197,11 @@ namespace logport{
 
 			if( child_pid == -1 ){
 				//error, or no child processes
-                observer.addLogEntry( "logport: waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
-                shutdown_complete = true;
-				this->waitUnlessEvent( 60 );
+                this->getObserver().addLogEntry( "logport: waitpid() error or no watches present. errno: " + logport::to_string<int>(errno) );
+                if( have_initiated_all_stop ){
+                	shutdown_complete = true;
+                }               	
+				this->waitUnlessEvent( 5 );
 			}
 
 			if( child_pid == 0 ){
@@ -2141,7 +2213,7 @@ namespace logport{
 
 						Database db;
 
-						observer.addLogEntry( "logport: gracefully stopping all watches..." );
+						this->getObserver().addLogEntry( "logport: gracefully stopping all watches..." );
 
 						for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
 
@@ -2151,11 +2223,11 @@ namespace logport{
 								watch.last_pid = watch.pid;
 								
 								//we're not going to use watch.stop() because it contains a shutdown delay and we want the delays to run in parallel (without needing to add threading, if possible)
-								//watch.stop( observer );
+								//watch.stop( this );
 
 						        //terminate gracefully first, then forcefully if graceful shutdown lasts longer than 20s
 						        if( kill(watch.pid, SIGINT) == -1 ){
-						            observer.addLogEntry( "logport: failed to kill watch with SIGINT." );
+						            this->getObserver().addLogEntry( "logport: failed to kill watch with SIGINT." );
 						        }
 						        
 								watch.pid = -1;
@@ -2172,7 +2244,7 @@ namespace logport{
 
 				//ensure each watch is not using more than 250MB of memory
 
-				if( this->run == true ){
+				if( this->run == true && have_initiated_all_stop == false ){
 
 					for( vector<Watch>::iterator it = watches.begin(); it != watches.end(); ++it ){
 
@@ -2184,25 +2256,25 @@ namespace logport{
 							int watch_process_rss = proc_status_get_rss_usage_in_kb( watch.pid );
 							const string process_name = proc_status_get_name( watch.pid );
 
-							observer.addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + ")" );
+							this->getObserver().addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + ")" );
 
 							if( watch_process_rss > 250000 ){ //250MB
 								//kill -9
 								//wait
 								//respawn
 
-								observer.addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the RSS exceeded 250MB." );
+								this->getObserver().addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the RSS exceeded 250MB." );
 
 								watch.last_pid = watch.pid;
 
-								watch.stop( observer );
+								watch.stop( this );
 
 								sleep(5);
 								
-								watch.start( observer );
+								watch.start( this );
 								if( watch.last_pid == watch.pid ){
 
-									observer.addLogEntry( "logport: watch was killed and the new process has the same PID. Exiting." );
+									this->getObserver().addLogEntry( "logport: watch was killed and the new process has the same PID. Exiting." );
 
 								}
 
@@ -2233,7 +2305,7 @@ namespace logport{
 				if( child_pid == watch.last_pid ){
 					//we just killed this process; ignore that it died
 					watch.last_pid = -1;
-					observer.addLogEntry( "logport: Notified of last PID." );
+					this->getObserver().addLogEntry( "logport: Notified of last PID." );
 					just_killed = true;
 				}
 
@@ -2261,31 +2333,31 @@ namespace logport{
 				if( WIFEXITED(status) ){
 
 					int exit_status = WEXITSTATUS(status);
-					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") exited with status " + logport::to_string<int>(exit_status) );
+					this->getObserver().addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") exited with status " + logport::to_string<int>(exit_status) );
 					
 					if( current_watch != NULL && this->run == true ){
-						observer.addLogEntry( "restarting..." );
+						this->getObserver().addLogEntry( "restarting..." );
 						current_watch->last_pid = child_pid;
-						current_watch->start( observer );
+						current_watch->start( this );
 					}
 
 
 				}else if( WIFSIGNALED(status) ){
 
 					int signal_number = WTERMSIG(status);
-					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") killed by signal " + logport::to_string<int>(signal_number) );
+					this->getObserver().addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") killed by signal " + logport::to_string<int>(signal_number) );
 					
 					if( current_watch != NULL && this->run == true ){
-						observer.addLogEntry( "restarting..." );
+						this->getObserver().addLogEntry( "restarting..." );
 						current_watch->last_pid = child_pid;
-						current_watch->start( observer );
+						current_watch->start( this );
 					}
 
 
 				}else if( WIFSTOPPED(status) ){
 
 					int signal_number = WSTOPSIG(status);
-					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") stopped by signal " + logport::to_string<int>(signal_number) );
+					this->getObserver().addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") stopped by signal " + logport::to_string<int>(signal_number) );
 					if( current_watch != NULL && this->run == true ){
 						current_watch->last_pid = child_pid;
 						current_watch->pid = -1;
@@ -2295,12 +2367,12 @@ namespace logport{
 
 				}else if( WIFCONTINUED(status) ){
 
-					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") continued" );
+					this->getObserver().addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") continued" );
 
 
 				}else{
 
-					observer.addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") unknown return from waitpid " + logport::to_string<int>(status) );
+					this->getObserver().addLogEntry( "logport: PID (" + logport::to_string<pid_t>(child_pid) + ") unknown return from waitpid " + logport::to_string<int>(status) );
 
 				}
 
@@ -2308,7 +2380,7 @@ namespace logport{
 
 		}
 
-		observer.addLogEntry( "logport: service shutdown complete" );
+		this->getObserver().addLogEntry( "logport: service shutdown complete" );
 
 	}
 

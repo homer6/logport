@@ -21,6 +21,7 @@
 
 #include "Common.h"
 #include "Observer.h"
+#include "LogPort.h"
 
 #include "Database.h"
 #include "Watch.h"
@@ -73,8 +74,8 @@ namespace logport{
     #define LOG_READ_BUFFER_SIZE 64 * 1024
 
 
-    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, Observer& observer )
-        :db(db), run(true), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), observer(observer)
+    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, LogPort* logport )
+        :db(db), run(true), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), logport(logport)
     {
 
         /* Create inotify instance; add watch descriptors */

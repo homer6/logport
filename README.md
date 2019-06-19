@@ -45,7 +45,7 @@ logport enable
 logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
-logport set rdkafka.producer.queue.buffering.max.messages 1000
+logport set rdkafka.producer.queue.buffering.max.messages 10000
 #[THIS VALUE DEFAULTS TO SYSTEM HOSTNAME -- ONLY SPECIFY TO OVERRIDE] logport set default.hostname my.sample.hostname
 logport watch /usr/local/logport/*.log /var/log/syslog
 logport watches
