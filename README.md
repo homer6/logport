@@ -42,10 +42,18 @@ sudo ./logport install
 rm librdkafka.so.1
 rm logport
 logport enable
+
 logport set default.brokers 192.168.1.91
 logport set default.topic my_logs
 logport set default.product_code prd4096
-logport set rdkafka.producer.queue.buffering.max.messages 10000
+
+logport set rdkafka.producer.queue.buffering.max.messages 1000
+logport set rdkafka.producer.queue.buffering.max.ms 100
+logport set rdkafka.producer.batch.num.messages 1000
+logport set rdkafka.producer.request.required.acks 1
+logport set rdkafka.producer.message.timeout.ms 30000
+logport set rdkafka.producer.max.in.flight.requests.per.connection 1000000
+
 #[THIS VALUE DEFAULTS TO SYSTEM HOSTNAME -- ONLY SPECIFY TO OVERRIDE] logport set default.hostname my.sample.hostname
 logport watch /usr/local/logport/*.log /var/log/syslog
 logport watches

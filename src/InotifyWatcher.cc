@@ -244,7 +244,7 @@ namespace logport{
             }
 
 
-
+        int64_t empty_read_count = 0;
 
         // Listen for events.
         // If this->shutting_down == true (controlled by signal handler), this->run will be true
@@ -398,6 +398,8 @@ namespace logport{
 
                         //no bytes read (EOF)
 
+                        empty_read_count++;
+
                         if( startup && !replaying_undelivered_log ){
                             //startup will continue until read = zero bytes
                             startup = false;
@@ -449,6 +451,13 @@ namespace logport{
                             }
 
                         }
+
+
+                        if( empty_read_count > 10000 ){
+                            log_being_rotated = true;
+                            //failsafe to guard against busy waiting
+                        }
+
 
                     }
 
