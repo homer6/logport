@@ -454,8 +454,18 @@ namespace logport{
 
 
                         if( empty_read_count > 10000 ){
-                            log_being_rotated = true;
                             //failsafe to guard against busy waiting
+
+                            this->run = false;
+
+                            //if there's any previous_log_partial left over, flush it before shutting down
+                            if( previous_log_partial.size() ){
+                                string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
+                                this->kafka_producer.produce( filtered_previous_log_partial );
+                                this->kafka_producer.poll();
+                                previous_log_partial.clear();
+                            }
+
                         }
 
 
