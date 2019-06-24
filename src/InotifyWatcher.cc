@@ -94,8 +94,10 @@ namespace logport{
             //fprintf(stderr, "%% Failed to add inotify watch descriptor: errno %d\n", errno );
             close( this->inotify_fd );
 
+            sleep( 3 ); //pause until the file is created (to prevent busy waiting on logrotate)
+
             snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
-            throw std::runtime_error( "Failed to add inotify watch descriptor: errno " + string(error_string_buffer) );
+            throw std::runtime_error( "Failed to add inotify watch descriptor: errno " + string(error_string_buffer) + " for file: " + watched_file );
         }
 
 
@@ -119,6 +121,7 @@ namespace logport{
 
         char error_string_buffer[1024];
 
+        //sleep(2); //avoids intermittent race condition on rotate (before open())
 
         int watched_file_fd = open( this->watched_file.c_str(), O_RDONLY | O_LARGEFILE | O_NOATIME | O_NOFOLLOW );
         if( watched_file_fd == -1 ){
@@ -429,7 +432,10 @@ namespace logport{
 
                         }
 
+
+
                         if( log_being_rotated ){
+
                             this->run = false;  //to exit on logrotate (after all bytes are drained)
                             //ensure that logrotate has the `delaycompress` option so that trailing bytes are properly drained
 
@@ -450,7 +456,10 @@ namespace logport{
                                 observer.addLogEntry( "logport: failed to save offset for " + this->watched_file + " " + string(e.what()) );
                             }
 
+                            //sleep(5); //avoids intermittent race condition on rotate (before open())
+
                         }
+
 
 
                         if( empty_read_count > 10000 ){

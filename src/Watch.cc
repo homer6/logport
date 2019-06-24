@@ -145,12 +145,17 @@ namespace logport{
 
             int exit_code = 0;
 
-            {
+            try{
+
+                sleep(2);
+
                 Database db;
 
                 map<string,string> settings = db.getSettings();
 
-                KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );  
+                KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
+
+                sleep(1);
 
                 InotifyWatcher watcher( db, kafka_producer, *this, logport );  //expects undelivered log to exist
                 inotify_watcher_ptr = &watcher;
@@ -167,6 +172,13 @@ namespace logport{
                      logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
                      exit_code = 1;
                 }
+
+
+            }catch( std::exception &e ){
+
+                 logport->getObserver().addLogEntry( "logport: watcher.start general exception: " + string(e.what()) );
+                 exit_code = 2;
+
             }
             
             //exit must be called after the kafka_producer destructs (and not before)
