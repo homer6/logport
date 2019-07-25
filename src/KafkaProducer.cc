@@ -248,11 +248,17 @@ namespace logport{
         rd_kafka_flush(this->rk, 6 * 1000 /* wait for max 6 seconds */);
         //this wait must be longer than the message.timeout.ms in the conf above or the messages will be lost and not stored in the undelivered_log
 
+
+
+        //workaround for issue where rd_kafka_destroy hangs: (https://github.com/edenhill/librdkafka/issues/624)
+        //as a result, these internal object resources are not cleaned up;
+        //so, your program should exit() shortly after this destructor is called
+
         /* Destroy topic object */
-        rd_kafka_topic_destroy(this->rkt);
+        //rd_kafka_topic_destroy(this->rkt);
 
         /* Destroy the producer instance */
-        rd_kafka_destroy(this->rk);
+        //rd_kafka_destroy(this->rk);
 
 
         if( this->undelivered_log_open ){
