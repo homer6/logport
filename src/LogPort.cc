@@ -2284,7 +2284,7 @@ namespace logport{
 
 								watch.stop( this );
 
-								sleep(5);
+								sleep(10);
 								
 								watch.start( this );
 								if( watch.last_pid == watch.pid ){
@@ -2310,7 +2310,7 @@ namespace logport{
 
 								watch.stop( this );
 
-								sleep(5);
+								sleep(10);
 								
 								watch.start( this );
 								if( watch.last_pid == watch.pid ){
