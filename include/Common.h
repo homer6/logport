@@ -23,7 +23,7 @@ namespace logport{
 
 	bool file_exists( const string& filename );
 
-	string get_file_contents( const string& filepath);
+	string get_file_contents( const string& filepath );
 
 	uint64_t get_file_size( const string& filepath );
 
@@ -49,6 +49,8 @@ namespace logport{
 
 	string proc_status_get_name( pid_t pid );
 
+	vector<string> proc_stat_values( pid_t pid );
+
 
 	// computer identification
 
@@ -62,6 +64,11 @@ namespace logport{
 		stringstream << input;
 		return stringstream.str();
     };
+
+
+    //see: http://www.cplusplus.com/reference/cstdlib/strtol/
+    long int string_to_long( string input );
+    unsigned long int string_to_ulong( string input );
 
 
 }

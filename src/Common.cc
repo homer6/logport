@@ -360,7 +360,7 @@ namespace logport{
 	        fclose(file);
 	        return result;
 
-	    }catch( std::exception &e ){        
+	    }catch( std::exception &e ){
 	        fclose(file);
 	        throw e;
 	    }
@@ -379,6 +379,19 @@ namespace logport{
 	    return proc_status_get_string_value( pid, "Name:" );
 	}
 
+	vector<string> proc_stat_values( pid_t pid ){
+
+	    std::ostringstream ss;
+	    ss << "/proc/";
+	    ss << pid;
+	    ss << "/stat";
+
+	    string stat_path = ss.str();
+
+	    return split_string( get_file_contents(stat_path), ' ' );
+
+	}
+
 
 
 	       
@@ -395,8 +408,15 @@ namespace logport{
 		return string( hostname_buffer );
 
 	}
-       
 
+
+    long int string_to_long( string input ){
+  		return strtol( input.c_str(), NULL, 10 );
+    }
+
+    unsigned long int string_to_ulong( string input ){
+  		return strtoul( input.c_str(), NULL, 10 );
+    }
 
 }
 

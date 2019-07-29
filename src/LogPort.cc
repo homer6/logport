@@ -35,6 +35,7 @@ using std::endl;
 #include <cstring>
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "Inspector.h"
 
@@ -2256,7 +2257,21 @@ namespace logport{
 							int watch_process_rss = proc_status_get_rss_usage_in_kb( watch.pid );
 							const string process_name = proc_status_get_name( watch.pid );
 
-							this->getObserver().addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + ")" );
+							vector<string> proc_stats = proc_stat_values( watch.pid );
+							double total_time_seconds = 0;
+							unsigned long user_time_ticks = 0;
+							unsigned long kernel_time_ticks = 0;
+							if( proc_stats.size() > 23 ){
+								user_time_ticks = string_to_ulong( proc_stats[14] );
+								kernel_time_ticks = string_to_ulong( proc_stats[15] );
+								long clock_ticks_per_second = sysconf(_SC_CLK_TCK);
+								if( clock_ticks_per_second == 0 ){
+									clock_ticks_per_second = 100;
+								}
+								total_time_seconds = double(user_time_ticks + kernel_time_ticks) / double(clock_ticks_per_second);
+							}
+
+							this->getObserver().addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + "), cpu_time(" + logport::to_string<double>(total_time_seconds) + ")" );
 
 							if( watch_process_rss > 250000 ){ //250MB
 								//kill -9
@@ -2281,6 +2296,33 @@ namespace logport{
 								sleep(5);
 
 							}
+
+
+
+							if( total_time_seconds > 1800 ){ //30 minutes
+								//kill -9
+								//wait
+								//respawn
+
+								this->getObserver().addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the CPU time exceeded 30 minutes." );
+
+								watch.last_pid = watch.pid;
+
+								watch.stop( this );
+
+								sleep(5);
+								
+								watch.start( this );
+								if( watch.last_pid == watch.pid ){
+
+									this->getObserver().addLogEntry( "logport: watch was killed and the new process has the same PID. Exiting." );
+
+								}
+
+								sleep(5);
+
+							}
+
 
 						}
 
