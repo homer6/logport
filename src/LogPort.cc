@@ -2271,7 +2271,9 @@ namespace logport{
 								total_time_seconds = double(user_time_ticks + kernel_time_ticks) / double(clock_ticks_per_second);
 							}
 
-							this->getObserver().addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + "), cpu_time(" + logport::to_string<double>(total_time_seconds) + ")" );
+							int64_t undelivered_log_file_size = get_file_size( watch.undelivered_log_filepath );
+
+							this->getObserver().addLogEntry( "logport: watch process_name(" + process_name + "), RSS(" + logport::to_string<int>(watch_process_rss) + "KB), PID(" + logport::to_string<pid_t>(watch.pid) + "), cpu_time(" + logport::to_string<double>(total_time_seconds) + "), undelivered_file_size(" + logport::to_string<int64_t>(undelivered_log_file_size) + ")" );
 
 							if( watch_process_rss > 250000 ){ //250MB
 								//kill -9
@@ -2322,6 +2324,40 @@ namespace logport{
 								sleep(5);
 
 							}
+
+
+							if( undelivered_log_file_size > 0 && watch.last_undelivered_size == undelivered_log_file_size ){ //30 minutes
+								//kill -9
+								//wait
+								//respawn
+
+								this->getObserver().addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because undelivered_file_size has stabilized and is not empty. Closing to replay undelivered log." );
+
+								watch.last_pid = watch.pid;
+
+								watch.stop( this );
+
+								sleep(10);
+								
+								watch.start( this );
+								if( watch.last_pid == watch.pid ){
+
+									this->getObserver().addLogEntry( "logport: watch was killed and the new process has the same PID. Exiting." );
+
+								}
+
+								watch.last_undelivered_size = 0;
+
+								sleep(5);
+
+							}else{
+
+								watch.last_undelivered_size = undelivered_log_file_size;
+
+							}
+
+							
+
 
 
 						}

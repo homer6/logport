@@ -35,6 +35,7 @@ namespace logport{
 
 	        int64_t id;	        
 	        int64_t file_offset;
+	        int64_t last_undelivered_size;
 
 	        pid_t pid;
 	        pid_t last_pid;

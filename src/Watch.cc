@@ -52,13 +52,13 @@ namespace logport{
 
 
     Watch::Watch()
-        :id(0), file_offset(0), pid(-1), last_pid(-1)
+        :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
     {   
 
     }
 
     Watch::Watch( const PreparedStatement& statement )
-        :id(0), file_offset(0), pid(-1), last_pid(-1)
+        :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
     {   
 
         this->id = statement.getInt64( 0 );
