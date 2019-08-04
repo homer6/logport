@@ -2326,7 +2326,7 @@ namespace logport{
 							}
 
 
-							if( undelivered_log_file_size > 0 && watch.last_undelivered_size == undelivered_log_file_size ){ //30 minutes
+							if( undelivered_log_file_size > 0 && watch.last_undelivered_size == undelivered_log_file_size ){ //when non-zero and size has stabilized
 								//kill -9
 								//wait
 								//respawn
