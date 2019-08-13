@@ -2262,8 +2262,8 @@ namespace logport{
 							unsigned long user_time_ticks = 0;
 							unsigned long kernel_time_ticks = 0;
 							if( proc_stats.size() > 23 ){
-								user_time_ticks = string_to_ulong( proc_stats[14] );
-								kernel_time_ticks = string_to_ulong( proc_stats[15] );
+								user_time_ticks = string_to_ulong( proc_stats[13] );
+								kernel_time_ticks = string_to_ulong( proc_stats[14] );
 								long clock_ticks_per_second = sysconf(_SC_CLK_TCK);
 								if( clock_ticks_per_second == 0 ){
 									clock_ticks_per_second = 100;
