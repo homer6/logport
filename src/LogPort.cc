@@ -2287,6 +2287,12 @@ namespace logport{
 								watch.stop( this );
 
 								sleep(10);
+
+								{
+									Database db;
+									watch.loadOffset( db );
+								}
+
 								
 								watch.start( this );
 								if( watch.last_pid == watch.pid ){
@@ -2301,18 +2307,23 @@ namespace logport{
 
 
 
-							if( total_time_seconds > 1800 ){ //30 minutes
+							if( total_time_seconds > 300 ){ //300 = 5 minutes 
 								//kill -9
 								//wait
 								//respawn
 
-								this->getObserver().addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the CPU time exceeded 30 minutes." );
+								this->getObserver().addLogEntry( "logport: watch (pid: " + logport::to_string<pid_t>(watch.pid) + ", file: " + watch.watched_filepath + ") was killed because the CPU time exceeded 5 minutes." );
 
 								watch.last_pid = watch.pid;
 
 								watch.stop( this );
 
 								sleep(10);
+
+								{
+									Database db;
+									watch.loadOffset( db );
+								}
 								
 								watch.start( this );
 								if( watch.last_pid == watch.pid ){
@@ -2338,6 +2349,11 @@ namespace logport{
 								watch.stop( this );
 
 								sleep(10);
+
+								{
+									Database db;
+									watch.loadOffset( db );
+								}
 								
 								watch.start( this );
 								if( watch.last_pid == watch.pid ){

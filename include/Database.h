@@ -30,6 +30,7 @@ namespace logport{
 
 	    	vector<Watch> getWatches();
 	    	Watch getWatchByPid( pid_t pid );
+	    	Watch getWatchById( int64_t id );
 
 	    	string getSetting( const string& key );
 	    	map<string,string> getSettings();

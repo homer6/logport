@@ -47,6 +47,7 @@ namespace logport{
 
 	    	void savePid( Database& db );
 	    	void saveOffset( Database& db );
+	    	void loadOffset( Database& db );
 
 	        void bind( PreparedStatement& statement, bool skip_id = true ) const;
 

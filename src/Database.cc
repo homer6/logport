@@ -150,6 +150,22 @@ namespace logport{
     }
 
 
+    Watch Database::getWatchById( int64_t id ){
+
+        PreparedStatement statement( *this, "SELECT * FROM watches WHERE id = ? ;" );
+        statement.bindInt32( 0, id );
+
+        while( statement.step() == SQLITE_ROW ){
+
+            return Watch(statement);
+            
+        }
+
+        throw std::runtime_error( "Watch id not found." );
+
+    }
+
+
 
     map<string,string> Database::getSettings(){
 

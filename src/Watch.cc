@@ -130,6 +130,15 @@ namespace logport{
     }
 
 
+    void Watch::loadOffset( Database& db ){
+
+        Watch reference_watch = db.getWatchById( this->id );
+
+        this->file_offset = reference_watch.file_offset;
+
+    }
+
+
 
 
 
