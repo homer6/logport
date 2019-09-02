@@ -153,7 +153,7 @@ namespace logport{
     Watch Database::getWatchById( int64_t id ){
 
         PreparedStatement statement( *this, "SELECT * FROM watches WHERE id = ? ;" );
-        statement.bindInt32( 0, id );
+        statement.bindInt64( 0, id );
 
         while( statement.step() == SQLITE_ROW ){
 
