@@ -35,7 +35,7 @@ set( LOGPORT_LIBS
 set( LOGPORT_COMPILE_OPTIONS
     -Wall
     -Wextra
-    -O0   
+    -O3   
     -std=c++98
     -g
     #-std=gnu++11
