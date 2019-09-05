@@ -2176,6 +2176,14 @@ namespace logport{
 						Watch& watch = *it;
 						if( watch.pid < 0 ){
 							//not running watch; let's start it
+
+							//wait for watches to start so the offset is saved properly
+							sleep(10);
+							{
+								Database db;
+								watch.loadOffset( db );
+							}
+
 							watch.start( this );
 						}
 					}
@@ -2432,6 +2440,14 @@ namespace logport{
 					if( current_watch != NULL && this->run == true ){
 						this->getObserver().addLogEntry( "restarting..." );
 						current_watch->last_pid = child_pid;
+
+						//wait for previous watch to save offset
+						{
+							sleep(10);
+							Database db;
+							current_watch->loadOffset( db );
+						}
+
 						current_watch->start( this );
 					}
 
@@ -2444,6 +2460,14 @@ namespace logport{
 					if( current_watch != NULL && this->run == true ){
 						this->getObserver().addLogEntry( "restarting..." );
 						current_watch->last_pid = child_pid;
+
+						//wait for previous watch to save offset
+						{
+							sleep(10);
+							Database db;
+							current_watch->loadOffset( db );
+						}
+						
 						current_watch->start( this );
 					}
 
