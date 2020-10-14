@@ -45,7 +45,7 @@ set( LOGPORT_COMPILE_OPTIONS
 
 add_executable( build/logport ${LOGPORT_SOURCES} src/logport_main.cc )
 
-target_link_libraries( build/logport -Wl,-rpath=/usr/local/lib/logport:. ${LOGPORT_LIBS} )
+target_link_libraries( build/logport -Wl,-rpath=.:/usr/local/lib/logport ${LOGPORT_LIBS} )
 
 set_target_properties( build/logport
     PROPERTIES
