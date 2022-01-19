@@ -9,3 +9,4 @@ compile_commands.json
 CTestTestfile.cmake
 /logport_project.sublime-project
 /logport_project.sublime-workspace
+/.idea

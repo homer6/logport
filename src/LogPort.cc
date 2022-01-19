@@ -168,7 +168,7 @@ namespace logport{
 		this->current_platform.determinePlatform();
 
 		execute_command( "mkdir -p /usr/local/lib/logport" );
-		execute_command( "cp logport /usr/local/bin" );
+		execute_command( "cp logport /usr/local/bin/logport" );
 
 		//create the db
 			execute_command( "mkdir -p /usr/local/logport" );
