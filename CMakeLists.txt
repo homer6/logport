@@ -18,6 +18,7 @@ set( LOGPORT_SOURCES
     src/Watch.cc
     src/Producer.cc
     src/KafkaProducer.cc
+    src/HttpProducer.cc
     src/InotifyWatcher.cc
     src/LevelTriggeredEpollWatcher.cc
     src/sqlite3.c
