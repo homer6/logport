@@ -129,8 +129,8 @@ namespace logport{
 
 
 
-    KafkaProducer::KafkaProducer( const map<string,string>& settings, LogPort* logport, const string &brokers_list, const string &topic, const string &undelivered_log )
-        :settings(settings), logport(logport), brokers_list(brokers_list), topic(topic), undelivered_log(undelivered_log), undelivered_log_open(false)
+    KafkaProducer::KafkaProducer( const map<string,string>& settings, LogPort* logport, const string &undelivered_log, const string &brokers_list, const string &topic )
+        :Producer( ProducerType::KAFKA, settings, logport, undelivered_log ), brokers_list(brokers_list), topic(topic)
     {
 
         undelivered_log_fd_static = -1;
@@ -264,6 +264,7 @@ namespace logport{
         if( this->undelivered_log_open ){
             undelivered_log_fd_static = -1;
             close( this->undelivered_log_fd );
+            this->undelivered_log_open = false;
         }
 
         this->logport->getObserver().addLogEntry( "Kafka producer shutdown complete: " + this->undelivered_log );

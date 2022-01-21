@@ -74,8 +74,8 @@ namespace logport{
     #define LOG_READ_BUFFER_SIZE 64 * 1024
 
 
-    InotifyWatcher::InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, LogPort* logport )
-        :db(db), run(true), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), kafka_producer(kafka_producer), watch(watch), logport(logport)
+    InotifyWatcher::InotifyWatcher( Database& db, Producer &producer, Watch& watch, LogPort* logport )
+        :db(db), run(true), watched_file(watch.watched_filepath), undelivered_log(watch.undelivered_log_filepath), producer(producer), watch(watch), logport(logport)
     {
 
         /* Create inotify instance; add watch descriptors */
@@ -227,8 +227,8 @@ namespace logport{
                     throw std::runtime_error( "Failed to rename undelivered_log: errno " + string(error_string_buffer) );
                 }
 
-                this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
-                this->kafka_producer.produce( this->filterLogLine("starting up - replaying undelivered log") );
+                this->producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
+                this->producer.produce( this->filterLogLine("starting up - replaying undelivered log") );
 
                 //ingest the undelivered_log contents
                 replaying_undelivered_log = true;
@@ -241,8 +241,8 @@ namespace logport{
 
             }else{
 
-                this->kafka_producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
-                this->kafka_producer.produce( this->filterLogLine("starting up") );
+                this->producer.openUndeliveredLog(); //must be called before first message; this is why we use a temp file above
+                this->producer.produce( this->filterLogLine("starting up") );
 
             }
 
@@ -358,7 +358,7 @@ namespace logport{
                                         string filtered_log_line = this->filterLogLine( sent_message );
 
                                         //handle consecutive newline characters (by dropping them)
-                                        this->kafka_producer.produce( filtered_log_line );
+                                        this->producer.produce( filtered_log_line );
                                         
                                         //skips the new line
                                         current_message_end_it++;
@@ -418,8 +418,8 @@ namespace logport{
                             //if there's any previous_log_partial left over, flush it before continuing
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
-                                this->kafka_producer.produce( filtered_previous_log_partial );
-                                this->kafka_producer.poll();
+                                this->producer.produce( filtered_previous_log_partial );
+                                this->producer.poll();
                                 previous_log_partial.clear();
                             }
 
@@ -438,8 +438,8 @@ namespace logport{
                             //if there's any previous_log_partial left over, flush it before shutting down
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
-                                this->kafka_producer.produce( filtered_previous_log_partial );
-                                this->kafka_producer.poll();
+                                this->producer.produce( filtered_previous_log_partial );
+                                this->producer.poll();
                                 previous_log_partial.clear();
                             }
 
@@ -478,14 +478,14 @@ namespace logport{
              * to make sure previously produced messages have their
              * delivery report callback served (and any other callbacks
              * you register). */
-            this->kafka_producer.poll();
+            this->producer.poll();
 
 
 
             //save the unsent offset, if this is shutting down
             if( this->run == false ){                
                 sleep(1);
-                this->kafka_producer.poll();
+                this->producer.poll();
                 Database db;
                 off64_t current_file_position = lseek64( watched_file_fd, 0, SEEK_CUR );
                 this->watch.file_offset = current_file_position - previous_log_partial.size();
