@@ -6,6 +6,10 @@ using std::string;
 #include <map>
 using std::map;
 
+#include <memory>
+
+#include "UrlList.h"
+
 #include "Producer.h"
 #include <cstdint>
 
@@ -26,6 +30,10 @@ namespace logport{
         protected:
             string targets_list;
             uint32_t batch_size = 1;
+
+            homer6::UrlList targets_url_list;
+
+            //std::unique_ptr<httplib::Client>
 
     };
 

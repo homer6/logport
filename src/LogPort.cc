@@ -749,21 +749,8 @@ namespace logport{
 
     			}else{
 
-                    Watch watch;
-
-                    vector<string> brokers_list = split_string( this_brokers, ',' );
-                    for( const string& broker : brokers_list ){
-                        homer6::Url url{ broker };
-                        string scheme = to_lower( url.getScheme() );
-                        if( scheme == "http" || scheme == "https" ){
-                            watch.setProducerType( ProducerType::HTTP );
-                        }else{
-                            watch.setProducerType( ProducerType::KAFKA );
-                        }
-                        break;
-                    }
-
-					watch.brokers = this_brokers;
+                    Watch watch{ this_brokers }; //automatically detects producer type based on Url scheme; throws on scheme mismatch
+					//watch.brokers = this_brokers;  //set in constructor above
 					watch.topic = this_topic;
 					watch.product_code = this_product_code;
 					watch.hostname = this_hostname;

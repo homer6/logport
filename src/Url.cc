@@ -1,11 +1,8 @@
-#include "../include/Url.h"
-
-
 // homer::Url v0.3.0
 // MIT License
 // https://github.com/homer6/url
 
-#include "../include/Url.h"
+#include "Url.h"
 
 #include <cstring>
 #include <cctype>
@@ -15,6 +12,7 @@
 
 
 namespace homer6{
+
 
 
     Url::Url(){
@@ -103,6 +101,29 @@ namespace homer6{
 
     string Url::getFragment() const{
         return this->fragment;
+    }
+
+
+
+
+    string Url::getFullPath() const{
+
+        string full_path;
+
+        if( this->getPath().size() ){
+            full_path += this->getPath();
+        }
+
+        if( this->getQuery().size() ){
+            full_path += "?" + this->getQuery();
+        }
+
+        if( this->getFragment().size() ){
+            full_path += "#" + this->getFragment();
+        }
+
+        return full_path;
+
     }
 
 
@@ -480,4 +501,11 @@ namespace homer6{
 
 
 }
+
+
+
+
+
+
+
 

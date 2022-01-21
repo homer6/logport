@@ -16,16 +16,24 @@
 
 #include "LogPort.h"
 
+#include <httplib.h>
+
+#include <iostream>
+using std::cout;
+using std::cerr;
+using std::endl;
+
 
 namespace logport{
 
 
 
     HttpProducer::HttpProducer( const map<string,string>& settings, LogPort* logport, const string &undelivered_log, const string& targets_list, uint32_t batch_size )
-        :Producer( ProducerType::HTTP, settings, logport, undelivered_log ), targets_list(targets_list), batch_size(batch_size)
+        :Producer( ProducerType::HTTP, settings, logport, undelivered_log ), targets_list(targets_list), batch_size(batch_size), targets_url_list(targets_list)
     {
 
 
+        /*
         map<string,string> http_settings;
 
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
@@ -53,6 +61,7 @@ namespace logport{
             }
 
         }
+         */
 
 
         /*
@@ -126,9 +135,96 @@ namespace logport{
 
 
 
-    void HttpProducer::produce( const string& /*message*/ ){
+    void HttpProducer::produce( const string& message ){
 
         //this->logport->getObserver().addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
+
+
+        // connect to target http server
+
+        if( message.size() == 0 ) return;
+
+
+        for( const homer6::Url& url : this->targets_url_list.urls ){
+
+            unsigned short port = url.getPort();
+
+            const string hostname = url.getHost();
+            const bool secure = url.isSecure();
+
+            const string path = url.getPath();
+            const string full_path = url.getFullPath();  //path + query + fragment
+
+            std::unique_ptr<httplib::Client> http_client;
+
+            if( secure ){
+                http_client.reset( reinterpret_cast<httplib::Client*>( new httplib::SSLClient( hostname.c_str(), port ) ) );
+                //http_client = std::make_unique<httplib::SSLClient>( hostname.c_str(), port );
+            }else{
+                http_client.reset( new httplib::Client( hostname.c_str(), port ) );
+                //http_client = std::make_unique<httplib::Client>( hostname.c_str(), port );
+            }
+
+            httplib::Headers request_headers{
+                { "Host", hostname },
+                { "User-Agent", "logport" }
+            };
+
+            /*
+            const string destination_username = config.getConfigSetting( "destination_username" );
+            const string destination_password = config.getConfigSetting( "destination_password" );
+            if( destination_username.size() ){
+                const string basic_auth_credentials = encodeBase64( destination_username + ":" + destination_password );
+                request_headers.insert( { "Authorization", "Basic " + basic_auth_credentials } );
+            }
+            */
+
+
+            try{
+
+                auto result = http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
+
+                if( result ){
+
+                    if( result->status >= 200 && result->status < 300 ){
+
+                        // success
+
+                    }else{
+
+                        /*
+                        json bad_response_object = json::object();
+
+                        bad_response_object["description"] = "HTTP Target non-200 response.";
+                        bad_response_object["body"] = target_response->body;
+                        bad_response_object["status"] = target_response->status;
+                        bad_response_object["headers"] = json::object();
+
+                        for( auto &header : target_response->headers ){
+                            bad_response_object["headers"][header.first] = header.second;
+                        }
+
+                        cerr << bad_response_object.dump() << endl;
+                        */
+
+                        cerr << result->status << " response" << endl;
+
+                    }
+
+                }else{
+
+                    cerr << "Logport: No response object." << endl;
+
+                }
+
+            }catch( const std::exception& e ){
+
+                cerr << "Logport: failed to send log lines to http target: " + string(e.what()) << endl;
+
+            }
+
+        }
+
 
     }
 
@@ -168,13 +264,6 @@ namespace logport{
         this->undelivered_log_open = true;
 
     }
-
-
-
-
-
-
-
 
 
 

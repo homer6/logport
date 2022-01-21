@@ -20,6 +20,7 @@ set( LOGPORT_SOURCES
     src/KafkaProducer.cc
     src/HttpProducer.cc
     src/Url.cc
+    src/UrlList.cc
     src/InotifyWatcher.cc
     src/LevelTriggeredEpollWatcher.cc
     src/sqlite3.c
@@ -29,6 +30,9 @@ set( LOGPORT_LIBS
     rdkafka
     pthread
     dl
+    ssl
+    crypto
+    z
 )
 
 
@@ -43,6 +47,8 @@ set( LOGPORT_COMPILE_OPTIONS
     #-std=gnu++11
     #-std=c++1y
     -std=c++17
+    -DCPPHTTPLIB_OPENSSL_SUPPORT
+    -DCPPHTTPLIB_ZLIB_SUPPORT
 )
 
 add_executable( build/logport ${LOGPORT_SOURCES} src/logport_main.cc )

@@ -62,6 +62,16 @@ namespace logport{
 
     }
 
+
+    Watch::Watch( const string& brokers )
+        :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
+    {
+
+        this->setBrokers( brokers );
+
+    }
+
+
     Watch::Watch( const PreparedStatement& statement )
         :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
     {   
@@ -70,7 +80,10 @@ namespace logport{
         this->watched_filepath = statement.getText( 1 );
         this->file_offset = statement.getInt64( 2 );
         this->producer_type_description = statement.getText( 3 );
+
         this->brokers = statement.getText( 4 );
+        this->setBrokers( this->brokers );
+
         this->topic = statement.getText( 5 );
         this->product_code = statement.getText( 6 );
         this->hostname = statement.getText( 7 );
@@ -78,13 +91,30 @@ namespace logport{
 
         this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
 
-        this->setProducerType( from_producer_type_description(this->producer_type_description) );
+        //this is set by the "setBrokers" call above
+        //this->setProducerType( from_producer_type_description(this->producer_type_description) );
 
     }
+
 
     Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset, pid_t pid )
         :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), hostname(hostname), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
     {
+        this->setBrokers( brokers );
+    }
+
+
+    void Watch::setBrokers( const string& brokers ){
+
+        this->brokers = brokers;
+        this->brokers_url_list = homer6::UrlList{ this->brokers };
+
+        string scheme = this->brokers_url_list.getScheme(); //throws on mismatch; always lowercase
+        if( scheme == "http" || scheme == "https" ){
+            this->setProducerType( ProducerType::HTTP );
+        }else{
+            this->setProducerType( ProducerType::KAFKA );
+        }
 
     }
 

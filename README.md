@@ -30,7 +30,10 @@ See the [Getting Started Guides](https://github.com/homer6/jetstream/tree/master
 - /usr/local/logport/logport.db must not be on an NFS mount
 
 ## Dependencies
-- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- librdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- libssl
+- libcrypto
+- libz
 
 ## Quickstart (OnPrem)
 
@@ -226,7 +229,7 @@ logport uninstall
 ```
 git clone https://github.com/homer6/logport.git
 cd logport/
-sudo apt -y install cmake g++ librdkafka-dev
+sudo apt -y install cmake g++ librdkafka-dev libssl-dev libz-dev
 cmake .
 make
 cd build
