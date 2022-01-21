@@ -25,6 +25,9 @@
 
 #include <sys/wait.h>
 
+#include <cctype>
+#include <algorithm>
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -156,6 +159,18 @@ namespace logport{
 		return output;
 
 	}
+
+
+    string to_lower( const string& source ){
+        string destination = source;
+        std::transform(
+            source.begin(),
+            source.end(),
+            destination.begin(),
+            [](unsigned char c){ return std::tolower(c); }
+        );
+        return destination;
+    }
 
 
 

@@ -12,6 +12,8 @@ using std::vector;
 
 #include <fstream>
 
+#include "Producer.h"
+
 namespace logport{
 
 	class PreparedStatement;
@@ -25,11 +27,16 @@ namespace logport{
 	    	Watch( const PreparedStatement& statement );
 	    	Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset = 0, pid_t pid = -1 );
 
+            void setProducerType( ProducerType producer_type );
+
 	        string watched_filepath;  			//eg. "/var/log/syslog"
 	        string undelivered_log_filepath;  	//eg. "/var/log/syslog_undelivered.log"
 
-	        string brokers;  					//csv separated
-	        string topic;						//eg. "my_logs"
+            ProducerType producer_type = ProducerType::KAFKA;
+            string producer_type_description = "KAFKA";
+
+            string brokers;  					//csv separated (include http path for http producer)
+	        string topic;						//eg. "my_logs" (unused for http producer)
 	        string product_code;				//eg. "prd123"
 	        string hostname;				    //eg. "my.hostname.com"
 
@@ -40,8 +47,6 @@ namespace logport{
 	        pid_t pid;
 	        pid_t last_pid;
 
-
-	    	
 	    	pid_t start( LogPort* logport );
 	    	void stop( LogPort* logport );
 

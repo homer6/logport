@@ -34,7 +34,7 @@ namespace logport{
 
 
 	vector<string> split_string( const string& source, char delimiter );
-
+    string to_lower( const string& source );
 
 	string escape_to_json_string( const string& unescaped_string );
 

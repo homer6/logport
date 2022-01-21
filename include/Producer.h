@@ -16,6 +16,10 @@ namespace logport {
         HTTP
     };
 
+    string from_producer_type( ProducerType producer_type );
+    ProducerType from_producer_type_description( const string& producer_type_description );
+
+
     /**
      * Base class for all producers.
      */

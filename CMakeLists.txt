@@ -19,6 +19,7 @@ set( LOGPORT_SOURCES
     src/Producer.cc
     src/KafkaProducer.cc
     src/HttpProducer.cc
+    src/Url.cc
     src/InotifyWatcher.cc
     src/LevelTriggeredEpollWatcher.cc
     src/sqlite3.c
