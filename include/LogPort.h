@@ -69,7 +69,7 @@ namespace logport{
 	        void addWatch( const Watch& watch );
 	        void listWatches();
 
-			void watchNow( const Watch& watch ) const;
+			void watchNow( Watch& watch );
 			void adopt( const Watch& watch );
 
 

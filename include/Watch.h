@@ -64,6 +64,7 @@ namespace logport{
 	        pid_t last_pid;
 
 	    	pid_t start( LogPort* logport );
+            void runNow( LogPort* logport ); //blocks; runs in current process
 	    	void stop( LogPort* logport );
 
 	    	void savePid( Database& db );

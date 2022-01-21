@@ -735,8 +735,8 @@ namespace logport{
 
     				if( is_last_argument ){
 
-						Watch watch;
-						watch.brokers = this_brokers;
+						Watch watch{ this_brokers };
+						//watch.brokers = this_brokers;
 						watch.topic = this_topic;
 						watch.product_code = this_product_code;
 						watch.hostname = this_hostname;
@@ -1313,18 +1313,11 @@ namespace logport{
 
 
 
-	void LogPort::watchNow( const Watch& /*watch*/ ) const{
+	void LogPort::watchNow( Watch& watch ){
 
-		/*
-
-		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
-
-		InotifyWatcher watcher( watch.watched_filepath, watch.undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
-		//inotify_watcher_ptr = &watcher;
-
-		watcher.watch(); //main loop; blocks
-
-		*/
+        cout << "now" << endl;
+        watch.runNow(this);
+        cout << "then" << endl;
 
 	}
 

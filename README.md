@@ -229,7 +229,7 @@ logport uninstall
 ```
 git clone https://github.com/homer6/logport.git
 cd logport/
-sudo apt -y install cmake g++ librdkafka-dev libssl-dev libz-dev
+sudo apt -y install cmake g++ librdkafka-dev libssl-dev libz-dev libpthread-stubs0-dev
 cmake .
 make
 cd build

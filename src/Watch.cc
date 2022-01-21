@@ -196,64 +196,7 @@ namespace logport{
             //child
 
             logport->getObserver().addLogEntry( "logport: Starting watch: " + this->watched_filepath );
-
-            int exit_code = 0;
-
-            try{
-
-                sleep(2);
-
-                Database db;
-
-                map<string,string> settings = db.getSettings();
-
-                unique_ptr<Producer> producer;
-
-                switch( this->producer_type ){
-
-                    case ProducerType::KAFKA:
-                        producer = std::make_unique<KafkaProducer>( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
-                        break;
-
-                    case ProducerType::HTTP:
-                        producer = std::make_unique<HttpProducer>( settings, logport, this->brokers, this->undelivered_log_filepath );
-                        break;
-
-                    default:
-                        throw std::runtime_error( "Unknown producer type." );
-
-                };
-
-                //KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
-
-                sleep(1);
-
-                InotifyWatcher watcher( db, *producer, *this, logport );  //expects undelivered log to exist
-                inotify_watcher_ptr = &watcher;
-
-                //register signal handler
-                signal( SIGINT, signal_handler_stop );
-                signal( SIGTERM, signal_handler_stop );
-
-                try{
-                     watcher.startWatching(); //main loop; blocks
-                     logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
-                     exit_code = 0;
-                }catch( std::exception &e ){
-                     logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
-                     exit_code = 1;
-                }
-
-
-            }catch( std::exception &e ){
-
-                 logport->getObserver().addLogEntry( "logport: watcher.start general exception: " + string(e.what()) );
-                 exit_code = 2;
-
-            }
-            
-            //exit must be called after the kafka_producer destructs (and not before)
-            exit(exit_code);
+            this->runNow( logport );
 
 
         }else if( pid == -1 ){
@@ -293,6 +236,88 @@ namespace logport{
     }
 
 
+
+    void Watch::runNow( LogPort* logport ){
+
+        int exit_code = 0;
+
+        try{
+
+            sleep(2);
+
+
+            cout << 1 << endl;
+            Database db;
+
+
+            cout << 2 << endl;
+            map<string,string> settings = db.getSettings();
+
+
+            cout << 3 << endl;
+            unique_ptr<Producer> producer;
+
+            switch( this->producer_type ){
+
+                case ProducerType::KAFKA:
+                    producer = std::make_unique<KafkaProducer>( settings, logport, this->undelivered_log_filepath, this->brokers, this->topic );
+                    break;
+
+                case ProducerType::HTTP:
+                    producer = std::make_unique<HttpProducer>( settings, logport, this->undelivered_log_filepath, this->brokers );
+                    break;
+
+                default:
+                    throw std::runtime_error( "Unknown producer type." );
+
+            };
+
+            //KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
+
+            sleep(1);
+
+            cout << 4 << endl;
+
+            InotifyWatcher watcher( db, *producer, *this, logport );  //expects undelivered log to exist
+            inotify_watcher_ptr = &watcher;
+
+
+            cout << 5 << endl;
+
+            //register signal handler
+            signal( SIGINT, signal_handler_stop );
+            signal( SIGTERM, signal_handler_stop );
+
+            cout << 6 << endl;
+
+            try{
+                watcher.startWatching(); //main loop; blocks
+                cout << 7 << endl;
+                logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
+                exit_code = 0;
+            }catch( std::exception &e ){
+                cout << 8 << endl;
+                logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
+                exit_code = 1;
+            }
+
+            cout << 9 << endl;
+
+        }catch( std::exception &e ){
+
+            const string error_message = string("logport: watcher.start general exception: ") + string(e.what());
+            cerr << error_message << endl;
+            logport->getObserver().addLogEntry( error_message );
+            exit_code = 2;
+
+        }
+
+        cout << 11 << endl;
+
+        //exit must be called after the kafka_producer destructs (and not before)
+        exit(exit_code);
+
+    }
 
 
     void Watch::stop( LogPort* logport ){

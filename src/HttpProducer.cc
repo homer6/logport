@@ -139,6 +139,10 @@ namespace logport{
 
         //this->logport->getObserver().addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
 
+        cout << message << endl;
+
+        //return;
+
 
         // connect to target http server
 
@@ -150,27 +154,21 @@ namespace logport{
             unsigned short port = url.getPort();
 
             const string hostname = url.getHost();
+
+            cout << hostname << endl;
             const bool secure = url.isSecure();
 
             const string path = url.getPath();
             const string full_path = url.getFullPath();  //path + query + fragment
 
-            std::unique_ptr<httplib::Client> http_client;
 
-            if( secure ){
-                http_client.reset( reinterpret_cast<httplib::Client*>( new httplib::SSLClient( hostname.c_str(), port ) ) );
-                //http_client = std::make_unique<httplib::SSLClient>( hostname.c_str(), port );
-            }else{
-                http_client.reset( new httplib::Client( hostname.c_str(), port ) );
-                //http_client = std::make_unique<httplib::Client>( hostname.c_str(), port );
-            }
-
+/*
             httplib::Headers request_headers{
                 { "Host", hostname },
                 { "User-Agent", "logport" }
             };
 
-            /*
+
             const string destination_username = config.getConfigSetting( "destination_username" );
             const string destination_password = config.getConfigSetting( "destination_password" );
             if( destination_username.size() ){
@@ -182,15 +180,38 @@ namespace logport{
 
             try{
 
-                auto result = http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
+                //Result Post(const char *path, const Headers &headers, const std::string &body, const char *content_type);
+                cout << full_path << endl;
+                //auto result = http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
 
-                if( result ){
+                //std::unique_ptr<httplib::Client> http_client;
 
-                    if( result->status >= 200 && result->status < 300 ){
+                if( secure ){
 
-                        // success
+                    auto http_client = std::make_unique<httplib::SSLClient>( hostname, port );
+                    http_client->Post( full_path.c_str() );
 
-                    }else{
+                    //http_client.reset( reinterpret_cast<httplib::Client*>( new httplib::SSLClient( hostname, port ) ) );
+                    //http_client = std::make_unique<httplib::SSLClient>( hostname.c_str(), port );
+                }else{
+                    //http_client.reset( new httplib::Client( hostname, port ) );
+                    //http_client = std::make_unique<httplib::Client>( hostname.c_str(), port );
+
+                    auto http_client = std::make_unique<httplib::Client>( hostname, port );
+                    http_client->Post( full_path.c_str() );
+
+                }
+
+
+
+
+//                if( result ){
+//
+//                    if( result->status >= 200 && result->status < 300 ){
+//
+//                        // success
+//
+//                    }else{
 
                         /*
                         json bad_response_object = json::object();
@@ -207,15 +228,15 @@ namespace logport{
                         cerr << bad_response_object.dump() << endl;
                         */
 
-                        cerr << result->status << " response" << endl;
-
-                    }
-
-                }else{
-
-                    cerr << "Logport: No response object." << endl;
-
-                }
+//                        cerr << result->status << " response" << endl;
+//
+//                    }
+//
+//                }else{
+//
+//                    cerr << "Logport: No response object." << endl;
+//
+//                }
 
             }catch( const std::exception& e ){
 
