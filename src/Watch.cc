@@ -245,16 +245,8 @@ namespace logport{
 
             sleep(2);
 
-
-            cout << 1 << endl;
             Database db;
-
-
-            cout << 2 << endl;
             map<string,string> settings = db.getSettings();
-
-
-            cout << 3 << endl;
             unique_ptr<Producer> producer;
 
             switch( this->producer_type ){
@@ -272,36 +264,23 @@ namespace logport{
 
             };
 
-            //KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
-
             sleep(1);
-
-            cout << 4 << endl;
 
             InotifyWatcher watcher( db, *producer, *this, logport );  //expects undelivered log to exist
             inotify_watcher_ptr = &watcher;
-
-
-            cout << 5 << endl;
 
             //register signal handler
             signal( SIGINT, signal_handler_stop );
             signal( SIGTERM, signal_handler_stop );
 
-            cout << 6 << endl;
-
             try{
                 watcher.startWatching(); //main loop; blocks
-                cout << 7 << endl;
                 logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
                 exit_code = 0;
             }catch( std::exception &e ){
-                cout << 8 << endl;
                 logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
                 exit_code = 1;
             }
-
-            cout << 9 << endl;
 
         }catch( std::exception &e ){
 
@@ -311,8 +290,6 @@ namespace logport{
             exit_code = 2;
 
         }
-
-        cout << 11 << endl;
 
         //exit must be called after the kafka_producer destructs (and not before)
         exit(exit_code);

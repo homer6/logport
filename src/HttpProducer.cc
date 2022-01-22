@@ -139,7 +139,7 @@ namespace logport{
 
         //this->logport->getObserver().addLogEntry( "Failed to produce to topic " + string(rd_kafka_topic_name(this->rkt)) + ": " + string(rd_kafka_err2str(rd_kafka_last_error())) );
 
-        cout << message << endl;
+        //cout << message << endl;
 
         //return;
 
@@ -155,20 +155,22 @@ namespace logport{
 
             const string hostname = url.getHost();
 
-            cout << hostname << endl;
+            //cout << hostname << endl;
             const bool secure = url.isSecure();
 
             const string path = url.getPath();
             const string full_path = url.getFullPath();  //path + query + fragment
 
 
-/*
+
             httplib::Headers request_headers{
                 { "Host", hostname },
                 { "User-Agent", "logport" }
             };
 
 
+
+            /*
             const string destination_username = config.getConfigSetting( "destination_username" );
             const string destination_password = config.getConfigSetting( "destination_password" );
             if( destination_username.size() ){
@@ -181,24 +183,20 @@ namespace logport{
             try{
 
                 //Result Post(const char *path, const Headers &headers, const std::string &body, const char *content_type);
-                cout << full_path << endl;
+                //cout << full_path << endl;
                 //auto result = http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
 
                 //std::unique_ptr<httplib::Client> http_client;
 
                 if( secure ){
 
-                    auto http_client = std::make_unique<httplib::SSLClient>( hostname, port );
-                    http_client->Post( full_path.c_str() );
+                    std::unique_ptr http_client = std::make_unique<httplib::SSLClient>( hostname, port );
+                    http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
 
-                    //http_client.reset( reinterpret_cast<httplib::Client*>( new httplib::SSLClient( hostname, port ) ) );
-                    //http_client = std::make_unique<httplib::SSLClient>( hostname.c_str(), port );
                 }else{
-                    //http_client.reset( new httplib::Client( hostname, port ) );
-                    //http_client = std::make_unique<httplib::Client>( hostname.c_str(), port );
 
-                    auto http_client = std::make_unique<httplib::Client>( hostname, port );
-                    http_client->Post( full_path.c_str() );
+                    std::unique_ptr http_client = std::make_unique<httplib::Client>( hostname, port );
+                    http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
 
                 }
 
