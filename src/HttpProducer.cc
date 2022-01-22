@@ -35,7 +35,6 @@ namespace logport{
     {
 
 
-        /*
         map<string,string> http_settings;
 
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
@@ -63,7 +62,6 @@ namespace logport{
             }
 
         }
-         */
 
 
         /*
@@ -79,40 +77,26 @@ namespace logport{
         }
         */
 
+        //create the connections
 
-        /* Set the delivery report callback.
-         * This callback will be called once per message to inform
-         * the application if delivery succeeded or failed.
-         * See dr_msg_cb() above. */
-        //rd_kafka_conf_set_dr_msg_cb(conf, delivery_report_message_callback);
+        for( const homer6::Url& url : this->targets_url_list.urls ){
 
+            unsigned short port = url.getPort();
+            const string hostname = url.getHost();
 
-        /*
-         * Create producer instance.
-         *
-         * NOTE: rd_kafka_new() takes ownership of the conf object
-         *       and the application must not reference it again after
-         *       this call.
-         */
-        //this->rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
-        //if( !this->rk ){
-        //    throw std::runtime_error( string("HttpProducer: Failed to create new producer: ") + rd_kafka_err2str(rd_kafka_last_error()) );
-        //}
+            if( url.isSecure() ){
+                std::unique_ptr https_client = std::make_unique<httplib::SSLClient>( hostname, port );
+                this->connections.push_back( { url, std::move(https_client) } );
+            }else{
+                const string error_message("HTTP connections are not supported.");
+                cerr << error_message << endl;
+                this->logport->getObserver().addLogEntry( error_message );
+                throw std::runtime_error(error_message);
+                //std::unique_ptr http_client = std::make_unique<httplib::Client>( hostname, port );
+                //this->connections.push_back( { url, std::move(http_client) } );
+            }
 
-
-        /* Create topic object that will be reused for each message
-         * produced.
-         *
-         * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
-         * are long-lived objects that should be reused as much as possible.
-         */
-        /*
-        this->rkt = rd_kafka_topic_new( this->rk, topic.c_str(), NULL );
-        if( !this->rkt ){
-            rd_kafka_destroy(this->rk);
-            throw std::runtime_error( string("HttpProducer: Failed to create topic object: ") + rd_kafka_err2str(rd_kafka_last_error()) );
         }
-        */
 
 
     }
@@ -141,11 +125,11 @@ namespace logport{
 
         if( message.size() == 0 ) return;
 
-        for( const homer6::Url& url : this->targets_url_list.urls ){
+        for( const auto& [ url, connection ] : this->connections ){
 
-            unsigned short port = url.getPort();
+            //unsigned short port = url.getPort();
             const string hostname = url.getHost();
-            const bool secure = url.isSecure();
+            //const bool secure = url.isSecure();
             const string path = url.getPath();
             const string full_path = url.getFullPath();  //path + query + fragment
 
@@ -163,17 +147,7 @@ namespace logport{
 
             try{
 
-                if( secure ){
-
-                    std::unique_ptr http_client = std::make_unique<httplib::SSLClient>( hostname, port );
-                    http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
-
-                }else{
-
-                    std::unique_ptr http_client = std::make_unique<httplib::Client>( hostname, port );
-                    http_client->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
-
-                }
+                connection->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
 
             }catch( const std::exception& e ){
 

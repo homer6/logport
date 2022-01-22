@@ -7,15 +7,22 @@ using std::string;
 using std::map;
 
 #include <memory>
+#include <utility>
 
 #include "UrlList.h"
 
 #include "Producer.h"
 #include <cstdint>
 
+#include "httplib.h"
+
 namespace logport{
 
     class LogPort;
+
+    using http_client_ptr = std::unique_ptr<httplib::SSLClient>;
+    using http_connection = std::pair<homer6::Url,http_client_ptr>;
+    using http_connection_list = std::vector<http_connection>;
 
     class HttpProducer : public Producer {
 
@@ -33,7 +40,7 @@ namespace logport{
 
             homer6::UrlList targets_url_list;
 
-            //std::unique_ptr<httplib::Client>
+            http_connection_list connections;
 
     };
 
