@@ -256,7 +256,7 @@ namespace logport{
                     break;
 
                 case ProducerType::HTTP:
-                    producer = std::make_unique<HttpProducer>( settings, logport, this->undelivered_log_filepath, this->brokers );
+                    producer = std::make_unique<HttpProducer>( settings, logport, this->undelivered_log_filepath, this->brokers, 2 );
                     break;
 
                 default:

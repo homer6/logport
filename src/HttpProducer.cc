@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <string.h>
 
+#include <algorithm>
+
 #include <errno.h>
 
 #include <stdexcept>
@@ -24,6 +26,9 @@ using std::cerr;
 using std::endl;
 
 #include "Common.h"
+
+#include "json.hpp"
+using json = nlohmann::json;
 
 
 namespace logport{
@@ -71,10 +76,30 @@ namespace logport{
 
             unsigned short port = url.getPort();
             const string hostname = url.getHost();
+            const bool secure = url.isSecure();
+            const string path = url.getPath();
+            const string full_path = url.getFullPath();  //path + query + fragment
 
-            if( url.isSecure() ){
-                std::unique_ptr https_client = std::make_unique<httplib::SSLClient>( hostname, port );
-                this->connections.push_back( { url, std::move(https_client) } );
+            HttpConnection connection;
+
+            connection.request_headers_template = httplib::Headers{
+                { "Host", hostname },
+                { "User-Agent", "logport" }
+            };
+
+            const string username = url.getUsername();
+            const string password = url.getPassword();
+            if( username.size() ){
+                const string basic_auth_credentials = logport::encodeBase64( username + ":" + password );
+                connection.request_headers_template.insert( { "Authorization", "Basic " + basic_auth_credentials } );
+            }
+
+            connection.full_path_template = url.getFullPath();
+            connection.batch_size = batch_size;
+
+            if( secure ){
+                connection.client = std::make_unique<httplib::SSLClient>( hostname, port );
+                this->connections.push_back( std::move(connection) );
             }else{
                 const string error_message("HTTP connections are not supported.");
                 cerr << error_message << endl;
@@ -113,29 +138,29 @@ namespace logport{
 
         if( message.size() == 0 ) return;
 
-        for( const auto& [ url, connection ] : this->connections ){
-
-            //unsigned short port = url.getPort();
-            const string hostname = url.getHost();
-            //const bool secure = url.isSecure();
-            const string path = url.getPath();
-            const string full_path = url.getFullPath();  //path + query + fragment
-
-            httplib::Headers request_headers{
-                { "Host", hostname },
-                { "User-Agent", "logport" }
-            };
-
-            const string username = url.getUsername();
-            const string password = url.getPassword();
-            if( username.size() ){
-                const string basic_auth_credentials = logport::encodeBase64( username + ":" + password );
-                request_headers.insert( { "Authorization", "Basic " + basic_auth_credentials } );
-            }
+        for( auto& connection : this->connections ){
 
             try{
 
-                connection->Post( full_path.c_str(), request_headers, message, "application/octet-stream" );
+//                if( connection.batch_size == 1 ) {
+//                    connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, message, "application/json" );
+//                }else {
+                    connection.messages.push_back( message );
+                    if( connection.messages.size() == connection.batch_size ){
+
+                        json messages_json = json::array();
+                        for( const auto& message : connection.messages ){
+                            messages_json.push_back( json::parse(message) );
+                        }
+                        json batch_json = json::object();
+                        batch_json["messages"] = messages_json;
+                        const string batch_str = batch_json.dump();
+
+                        connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, batch_str, "application/json" );
+                        connection.messages.clear();
+
+                    }
+//                }
 
             }catch( const std::exception& e ){
 
