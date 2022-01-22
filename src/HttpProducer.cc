@@ -23,6 +23,8 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
+#include "Common.h"
+
 
 namespace logport{
 
@@ -169,15 +171,15 @@ namespace logport{
             };
 
 
+            const string username = url.getUsername();
+            const string password = url.getPassword();
 
-            /*
-            const string destination_username = config.getConfigSetting( "destination_username" );
-            const string destination_password = config.getConfigSetting( "destination_password" );
-            if( destination_username.size() ){
-                const string basic_auth_credentials = encodeBase64( destination_username + ":" + destination_password );
+
+            if( username.size() ){
+                const string basic_auth_credentials = logport::encodeBase64( username + ":" + password );
                 request_headers.insert( { "Authorization", "Basic " + basic_auth_credentials } );
             }
-            */
+
 
 
             try{

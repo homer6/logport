@@ -1315,9 +1315,7 @@ namespace logport{
 
 	void LogPort::watchNow( Watch& watch ){
 
-        cout << "now" << endl;
         watch.runNow(this);
-        cout << "then" << endl;
 
 	}
 
