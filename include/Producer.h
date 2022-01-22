@@ -58,7 +58,7 @@ namespace logport {
 
         protected:
             ProducerType type = ProducerType::KAFKA;
-            const map<string, string> &settings;
+            map<string, string> settings;
             LogPort *logport;
 
             int undelivered_log_fd = -1;

@@ -30,38 +30,26 @@ namespace logport{
 
 
 
-    HttpProducer::HttpProducer( const map<string,string>& settings, LogPort* logport, const string &undelivered_log, const string& targets_list, uint32_t batch_size )
-        :Producer( ProducerType::HTTP, settings, logport, undelivered_log ), targets_list(targets_list), batch_size(batch_size), targets_url_list(targets_list)
+    HttpProducer::HttpProducer( const map<string,string>& initial_settings, LogPort* logport, const string &undelivered_log, const string& targets_list, uint32_t batch_size )
+        :Producer( ProducerType::HTTP, {}, logport, undelivered_log ), targets_list(targets_list), batch_size(batch_size), targets_url_list(targets_list)
     {
 
 
         map<string,string> http_settings;
-
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
         http_settings["batch.num.messages"] = "1";
 
-
         //copy over the overridden logport http producer settings
-        for( map<string,string>::const_iterator it = this->settings.begin(); it != this->settings.end(); it++ ){
-
-            const string setting_key = it->first;
-
-            const string key_prefix = setting_key.substr(0,14);  //"http.producer."
-
-            string http_setting_key;
-
+        for( const auto& [key, value] : initial_settings ){
+            const string key_prefix = key.substr(0,14);  //"http.producer."
             if( key_prefix == "http.producer." ){
-                http_setting_key = setting_key.substr(14, string::npos);
-
-                const string setting_value = it->second;
-
+                string http_setting_key = key.substr(14, string::npos);
                 if( http_setting_key.size() > 0 ){
-                    http_settings[ http_setting_key ] = setting_value;
+                    http_settings[ http_setting_key ] = value;
                 }
-
             }
-
         }
+        this->settings = http_settings;
 
 
         /*
