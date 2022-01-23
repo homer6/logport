@@ -18,8 +18,6 @@
 
 #include "LogPort.h"
 
-#include <httplib.h>
-
 #include <iostream>
 using std::cout;
 using std::cerr;
@@ -216,10 +214,14 @@ namespace logport{
                     };
 
                     const string batch_str = batch_json.dump();
+                    connection.messages.clear();
 
                     //cout << "send" << endl;
-                    connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, batch_str, connection.format_str.c_str() );
-                    connection.messages.clear();
+
+                    auto* connection_ptr = &connection;
+                    this->pool.push_task([ connection_ptr, batch_str ]{
+                        connection_ptr->client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
+                    });
 
                 }
 

@@ -17,7 +17,13 @@ using std::vector;
 #include "Producer.h"
 #include <cstdint>
 
-#include "httplib.h"
+#include "httplib.hpp"
+
+#include <chrono>
+#include <thread>
+#include <mutex>
+#include "thread_pool.hpp"
+
 
 namespace logport{
 
@@ -37,6 +43,7 @@ namespace logport{
                 KAFKA_JSON_V2_JSON
             };
 
+            // this is used as kind of a pre-computed set so that these values don't need to be computed on each message
             struct HttpConnection{
                 homer6::Url url;
                 string full_path_template;
@@ -70,6 +77,9 @@ namespace logport{
             homer6::UrlList targets_url_list;
 
             http_connection_list connections;
+
+            thread_pool pool{20};
+            //std::mutex model_mutex;
 
     };
 
