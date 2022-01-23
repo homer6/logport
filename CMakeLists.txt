@@ -49,6 +49,7 @@ set( LOGPORT_COMPILE_OPTIONS
     -std=c++17
     -DCPPHTTPLIB_OPENSSL_SUPPORT
     -DCPPHTTPLIB_ZLIB_SUPPORT
+    -DCPPHTTPLIB_USE_POLL
 )
 
 add_executable( build/logport ${LOGPORT_SOURCES} src/logport_main.cc )

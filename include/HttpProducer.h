@@ -32,11 +32,18 @@ namespace logport{
 
             using http_client_ptr = std::unique_ptr<httplib::SSLClient>;
             using settings_map = std::map<string,string>;
+            enum struct FormatType{
+                JSON,
+                KAFKA_JSON_V2_JSON
+            };
 
             struct HttpConnection{
                 homer6::Url url;
                 string full_path_template;
                 uint32_t batch_size = 1;
+                FormatType format = FormatType::JSON;
+                string format_str;
+                bool compress = true;
                 http_client_ptr client;
                 httplib::Headers request_headers_template;
                 settings_map settings;

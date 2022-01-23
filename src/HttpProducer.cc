@@ -35,6 +35,8 @@ namespace logport{
 
 
 
+
+
     HttpProducer::HttpProducer( const map<string,string>& initial_settings, LogPort* logport, const string &undelivered_log, const string& targets_list )
         :Producer( ProducerType::HTTP, {}, logport, undelivered_log ), targets_list(targets_list), targets_url_list(targets_list)
     {
@@ -46,6 +48,9 @@ namespace logport{
         //    "logport settings"
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
         http_settings["batch.num.messages"] = "1";
+        http_settings["compress"] = "true";  //gzip request
+        http_settings["format"] = "application/json";
+
 
         //copy over the overridden logport http producer settings
         for( const auto& [key, value] : initial_settings ){
@@ -60,6 +65,13 @@ namespace logport{
         }
         this->settings = http_settings;
 
+        bool compress = true;
+        if( this->settings.count("compress") ){
+            const string compress_str = this->settings.at("compress");
+            if( compress_str == "false" ){
+                compress = false;
+            }
+        }
 
 //        for( const auto& [key, value] : this->settings ){
 //            cout << "Settings: key(" << key << ") value(" << value << ")" << endl;
@@ -80,7 +92,20 @@ namespace logport{
 
         }
 
-        //cout << batch_size << endl;
+
+        FormatType format = FormatType::JSON;
+        string format_str = this->settings.at("format");
+        if( this->settings.count("format") ){
+            if( format_str == "application/json" ){
+                format = FormatType::KAFKA_JSON_V2_JSON;
+            }else if( format_str == "application/vnd.kafka.json.v2+json" ){
+                //see https://vectorized.io/blog/pandaproxy/ or https://docs.confluent.io/5.5.2/kafka-rest/api.html
+                format = FormatType::KAFKA_JSON_V2_JSON;
+            }else{
+                format_str = string("application/json");
+            }
+        }
+
 
         for( const homer6::Url& url : this->targets_url_list.urls ){
 
@@ -92,6 +117,9 @@ namespace logport{
 
             HttpConnection connection;
 
+            connection.format = format;
+            connection.format_str = format_str;
+            connection.compress = compress;
             connection.request_headers_template = httplib::Headers{
                 { "Host", hostname },
                 { "User-Agent", "logport" }
@@ -109,9 +137,12 @@ namespace logport{
 
             if( secure ){
                 connection.client = std::make_unique<httplib::SSLClient>( hostname, port );
+                connection.client->set_keep_alive(true);
+                connection.client->set_follow_location(true);
+                connection.client->set_compress(connection.compress);
                 this->connections.push_back( std::move(connection) );
             }else{
-                const string error_message("HTTP connections are not supported.");
+                const string error_message("Unencrypted (HTTP) connections are not supported.");
                 cerr << error_message << endl;
                 this->logport->getObserver().addLogEntry( error_message );
                 throw std::runtime_error(error_message);
@@ -152,26 +183,45 @@ namespace logport{
 
             try{
 
-//                if( connection.batch_size == 1 ) {
-//                    connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, message, "application/json" );
-//                }else {
-                    connection.messages.push_back( message );
-                    if( connection.messages.size() == connection.batch_size ){
+                connection.messages.push_back( message );
+                if( connection.messages.size() == connection.batch_size ){
 
-                        json messages_json = json::array();
-                        for( const auto& message : connection.messages ){
-                            messages_json.push_back( json::parse(message) );
-                        }
-                        json batch_json = json::object();
-                        batch_json["messages"] = messages_json;
-                        batch_json["count"] = connection.messages.size();
-                        const string batch_str = batch_json.dump();
+                    json batch_json = json::object();
+                    json messages_json = json::array();
 
-                        connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, batch_str, "application/json" );
-                        connection.messages.clear();
+                    switch( connection.format ){
 
-                    }
-//                }
+                        case FormatType::KAFKA_JSON_V2_JSON:
+                            for( const auto& message : connection.messages ){
+                                json record = json::object();
+                                record["value"] = json::parse(message);
+                                messages_json.push_back( std::move(record) );
+                            }
+                            batch_json["records"] = messages_json;
+
+                            break;
+
+                        case FormatType::JSON:
+                            for( const auto& message : connection.messages ){
+                                messages_json.push_back( json::parse(message) );
+                            }
+                            batch_json["messages"] = messages_json;
+                            batch_json["count"] = connection.messages.size();
+
+                            break;
+
+                        default:
+                            throw std::runtime_error("Unknown format.");
+
+                    };
+
+                    const string batch_str = batch_json.dump();
+
+                    //cout << "send" << endl;
+                    connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, batch_str, connection.format_str.c_str() );
+                    connection.messages.clear();
+
+                }
 
             }catch( const std::exception& e ){
 
