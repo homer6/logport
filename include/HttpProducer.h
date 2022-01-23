@@ -49,7 +49,7 @@ namespace logport{
 
 
 
-            HttpProducer( const map<string,string>& settings, LogPort* logport, const string& undelivered_log, const string& targets_list, uint32_t batch_size = 1 );
+            HttpProducer( const map<string,string>& settings, LogPort* logport, const string& undelivered_log, const string& targets_list );
             virtual ~HttpProducer() override;
 
             virtual void produce( const string& message ) override;

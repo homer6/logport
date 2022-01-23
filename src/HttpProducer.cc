@@ -35,17 +35,21 @@ namespace logport{
 
 
 
-    HttpProducer::HttpProducer( const map<string,string>& initial_settings, LogPort* logport, const string &undelivered_log, const string& targets_list, uint32_t batch_size )
-        :Producer( ProducerType::HTTP, {}, logport, undelivered_log ), targets_list(targets_list), batch_size(batch_size), targets_url_list(targets_list)
+    HttpProducer::HttpProducer( const map<string,string>& initial_settings, LogPort* logport, const string &undelivered_log, const string& targets_list )
+        :Producer( ProducerType::HTTP, {}, logport, undelivered_log ), targets_list(targets_list), targets_url_list(targets_list)
     {
 
 
         map<string,string> http_settings;
+        //when these settings are set with 'logport set <key> <value>', they'll have the "http.producer." prefix on them.
+        //eg. "logport set http.producer.batch.num.messages 100"
+        //    "logport settings"
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
         http_settings["batch.num.messages"] = "1";
 
         //copy over the overridden logport http producer settings
         for( const auto& [key, value] : initial_settings ){
+            //cout << "Initial: key(" << key << ") value(" << value << ")" << endl;
             const string key_prefix = key.substr(0,14);  //"http.producer."
             if( key_prefix == "http.producer." ){
                 string http_setting_key = key.substr(14, string::npos);
@@ -57,20 +61,26 @@ namespace logport{
         this->settings = http_settings;
 
 
-        /*
-        for( map<string,string>::iterator it = http_settings.begin(); it != http_settings.end(); it++ ){
-
-            const string setting_key = it->first;
-            const string setting_value = it->second;
-            if( rd_kafka_conf_set(conf, setting_key.c_str(), setting_value.c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK ){
-                rd_kafka_conf_destroy(conf);
-                throw std::runtime_error( string("HttpProducer: Failed to set configuration for ") + setting_key + ": " + errstr );
-            }
-
-        }
-        */
+//        for( const auto& [key, value] : this->settings ){
+//            cout << "Settings: key(" << key << ") value(" << value << ")" << endl;
+//        }
 
         //create the connections
+
+
+        //cout << batch_size_str << endl;
+        uint32_t batch_size = 1;
+        try{
+            const string batch_size_str = this->settings["batch.num.messages"];
+            unsigned long batch_size_ul = std::stoul(batch_size_str);
+            batch_size = static_cast<uint32_t>( batch_size_ul );
+            if( batch_size < 1 ) batch_size = 1;
+            if( batch_size > 100000 ) batch_size = 100000;
+        }catch( std::exception& ){
+
+        }
+
+        //cout << batch_size << endl;
 
         for( const homer6::Url& url : this->targets_url_list.urls ){
 
@@ -154,6 +164,7 @@ namespace logport{
                         }
                         json batch_json = json::object();
                         batch_json["messages"] = messages_json;
+                        batch_json["count"] = connection.messages.size();
                         const string batch_str = batch_json.dump();
 
                         connection.client->Post( connection.full_path_template.c_str(), connection.request_headers_template, batch_str, "application/json" );
