@@ -34,9 +34,13 @@ namespace logport{
 
 
 	vector<string> split_string( const string& source, char delimiter );
-
+    string to_lower( const string& source );
 
 	string escape_to_json_string( const string& unescaped_string );
+
+    string encodeBase64( const string& binary_data );
+
+    string decodeBase64( const string& ascii_data );
 
 
 	//format: 1556311722.644052770

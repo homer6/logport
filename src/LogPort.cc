@@ -12,7 +12,11 @@ using std::endl;
 
 #include "InotifyWatcher.h"
 #include "LevelTriggeredEpollWatcher.h"
+
+#include "Producer.h"
 #include "KafkaProducer.h"
+#include "HttpProducer.h"
+
 #include "Database.h"
 #include "PreparedStatement.h"
 #include "sqlite3.h"
@@ -38,6 +42,8 @@ using std::endl;
 #include <unistd.h>
 
 #include "Inspector.h"
+
+#include "Url.h"
 
 
 #include <map>
@@ -729,8 +735,8 @@ namespace logport{
 
     				if( is_last_argument ){
 
-						Watch watch;
-						watch.brokers = this_brokers;
+						Watch watch{ this_brokers };
+						//watch.brokers = this_brokers;
 						watch.topic = this_topic;
 						watch.product_code = this_product_code;
 						watch.hostname = this_hostname;
@@ -743,8 +749,8 @@ namespace logport{
 
     			}else{
 
-					Watch watch;
-					watch.brokers = this_brokers;
+                    Watch watch{ this_brokers }; //automatically detects producer type based on Url scheme; throws on scheme mismatch
+					//watch.brokers = this_brokers;  //set in constructor above
 					watch.topic = this_topic;
 					watch.product_code = this_product_code;
 					watch.hostname = this_hostname;
@@ -1013,6 +1019,7 @@ namespace logport{
 		vector<string> column_labels;
 		column_labels.push_back( " watch_id" ); //add a space for left padding
 		column_labels.push_back( "watched_filepath" );
+        column_labels.push_back( "producer_type" );
 		column_labels.push_back( "brokers" );
 		column_labels.push_back( "topic" );
 		column_labels.push_back( "product_code" );
@@ -1045,25 +1052,30 @@ namespace logport{
 					if( watch.watched_filepath.size() > column_widths_maximums[1] ){
 						column_widths_maximums[1] = watch.watched_filepath.size();
 					}
-					
+
+                // producer type description
+                    if( watch.producer_type_description.size() > column_widths_maximums[2] ){
+                        column_widths_maximums[2] = watch.producer_type_description.size();
+                    }
+
 				// brokers
-					if( watch.brokers.size() > column_widths_maximums[2] ){
-						column_widths_maximums[2] = watch.brokers.size();
+					if( watch.brokers.size() > column_widths_maximums[3] ){
+						column_widths_maximums[3] = watch.brokers.size();
 					}
 
 				// topic
-					if( watch.topic.size() > column_widths_maximums[3] ){
-						column_widths_maximums[3] = watch.topic.size();
+					if( watch.topic.size() > column_widths_maximums[4] ){
+						column_widths_maximums[4] = watch.topic.size();
 					}
 
 				// product_code
-					if( watch.product_code.size() > column_widths_maximums[4] ){
-						column_widths_maximums[4] = watch.product_code.size();
+					if( watch.product_code.size() > column_widths_maximums[5] ){
+						column_widths_maximums[5] = watch.product_code.size();
 					}
 
 				// hostname
-					if( watch.hostname.size() > column_widths_maximums[5] ){
-						column_widths_maximums[5] = watch.hostname.size();
+					if( watch.hostname.size() > column_widths_maximums[6] ){
+						column_widths_maximums[6] = watch.hostname.size();
 					}
 
 				// file_offset
@@ -1071,8 +1083,8 @@ namespace logport{
 					file_offset_stringstream << watch.file_offset;
 					string file_offset_string = file_offset_stringstream.str();
 
-					if( file_offset_string.size() > column_widths_maximums[6] ){
-						column_widths_maximums[6] = file_offset_string.size();
+					if( file_offset_string.size() > column_widths_maximums[7] ){
+						column_widths_maximums[7] = file_offset_string.size();
 					}
 
 				// pid
@@ -1080,8 +1092,8 @@ namespace logport{
 					pid_stringstream << watch.pid;
 					string pid_string = pid_stringstream.str();
 
-					if( pid_string.size() > column_widths_maximums[7] ){
-						column_widths_maximums[7] = pid_string.size();
+					if( pid_string.size() > column_widths_maximums[8] ){
+						column_widths_maximums[8] = pid_string.size();
 					}
 
 			}
@@ -1126,12 +1138,13 @@ namespace logport{
 
 			cout << std::right << std::setw(column_widths_maximums[0]) << watch.id << " | ";
 			cout << std::left << std::setw(column_widths_maximums[1]) << watch.watched_filepath << " | ";
-			cout << std::left << std::setw(column_widths_maximums[2]) << watch.brokers << " | ";
-			cout << std::left << std::setw(column_widths_maximums[3]) << watch.topic << " | ";
-			cout << std::left << std::setw(column_widths_maximums[4]) << watch.product_code << " | ";
-			cout << std::left << std::setw(column_widths_maximums[5]) << watch.hostname << " | ";
-			cout << std::right << std::setw(column_widths_maximums[6]) << watch.file_offset << " | ";
-			cout << std::right << std::setw(column_widths_maximums[7]) << watch.pid << endl;
+            cout << std::left << std::setw(column_widths_maximums[2]) << watch.producer_type_description << " | ";
+			cout << std::left << std::setw(column_widths_maximums[3]) << watch.brokers << " | ";
+			cout << std::left << std::setw(column_widths_maximums[4]) << watch.topic << " | ";
+			cout << std::left << std::setw(column_widths_maximums[5]) << watch.product_code << " | ";
+			cout << std::left << std::setw(column_widths_maximums[6]) << watch.hostname << " | ";
+			cout << std::right << std::setw(column_widths_maximums[7]) << watch.file_offset << " | ";
+			cout << std::right << std::setw(column_widths_maximums[8]) << watch.pid << endl;
 
 		}
 
@@ -1143,7 +1156,7 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, brokers, topic, product_code, hostname, pid ) VALUES ( ?, ?, ?, ?, ?, ?, ? );" );
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, producer_type, brokers, topic, product_code, hostname, pid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? );" );
 
 		watch.bind( statement, true );
 
@@ -1300,18 +1313,9 @@ namespace logport{
 
 
 
-	void LogPort::watchNow( const Watch& /*watch*/ ) const{
+	void LogPort::watchNow( Watch& watch ){
 
-		/*
-
-		KafkaProducer kafka_producer( watch.brokers, watch.topic, watch.undelivered_log_filepath );  
-
-		InotifyWatcher watcher( watch.watched_filepath, watch.undelivered_log_filepath, kafka_producer );  //expects undelivered log to exist
-		//inotify_watcher_ptr = &watcher;
-
-		watcher.watch(); //main loop; blocks
-
-		*/
+        watch.runNow(this);
 
 	}
 

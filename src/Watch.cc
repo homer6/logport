@@ -7,8 +7,10 @@
 #include "LogPort.h"
 
 #include "InotifyWatcher.h"
-#include "KafkaProducer.h"
 
+#include "Producer.h"
+#include "KafkaProducer.h"
+#include "HttpProducer.h"
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -17,6 +19,9 @@
 #include <cstring>
 #include <errno.h>
 #include <signal.h>
+
+#include <memory>
+using std::unique_ptr;
 
 
 #include <iostream>
@@ -57,6 +62,16 @@ namespace logport{
 
     }
 
+
+    Watch::Watch( const string& brokers )
+        :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
+    {
+
+        this->setBrokers( brokers );
+
+    }
+
+
     Watch::Watch( const PreparedStatement& statement )
         :id(0), file_offset(0), last_undelivered_size(0), pid(-1), last_pid(-1)
     {   
@@ -64,20 +79,49 @@ namespace logport{
         this->id = statement.getInt64( 0 );
         this->watched_filepath = statement.getText( 1 );
         this->file_offset = statement.getInt64( 2 );
-        this->brokers = statement.getText( 3 );
-        this->topic = statement.getText( 4 );
-        this->product_code = statement.getText( 5 );
-        this->hostname = statement.getText( 6 );
-        this->pid = statement.getInt32( 7 );
+        this->producer_type_description = statement.getText( 3 );
+
+        this->brokers = statement.getText( 4 );
+        this->setBrokers( this->brokers );
+
+        this->topic = statement.getText( 5 );
+        this->product_code = statement.getText( 6 );
+        this->hostname = statement.getText( 7 );
+        this->pid = statement.getInt32( 8 );
 
         this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
 
+        //this is set by the "setBrokers" call above
+        //this->setProducerType( from_producer_type_description(this->producer_type_description) );
+
     }
+
 
     Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset, pid_t pid )
         :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), hostname(hostname), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
     {
+        this->setBrokers( brokers );
+    }
 
+
+    void Watch::setBrokers( const string& brokers ){
+
+        this->brokers = brokers;
+        this->brokers_url_list = homer6::UrlList{ this->brokers };
+
+        string scheme = this->brokers_url_list.getScheme(); //throws on mismatch; always lowercase
+        if( scheme == "http" || scheme == "https" ){
+            this->setProducerType( ProducerType::HTTP );
+        }else{
+            this->setProducerType( ProducerType::KAFKA );
+        }
+
+    }
+
+
+    void Watch::setProducerType( ProducerType producer_type ){
+        this->producer_type = producer_type;
+        this->producer_type_description = from_producer_type(producer_type);
     }
 
 
@@ -91,6 +135,7 @@ namespace logport{
         
         statement.bindText( current_offset++, this->watched_filepath );
         statement.bindInt64( current_offset++, this->file_offset );
+        statement.bindText( current_offset++, this->producer_type_description );
         statement.bindText( current_offset++, this->brokers );
         statement.bindText( current_offset++, this->topic );
         statement.bindText( current_offset++, this->product_code );
@@ -151,47 +196,7 @@ namespace logport{
             //child
 
             logport->getObserver().addLogEntry( "logport: Starting watch: " + this->watched_filepath );
-
-            int exit_code = 0;
-
-            try{
-
-                sleep(2);
-
-                Database db;
-
-                map<string,string> settings = db.getSettings();
-
-                KafkaProducer kafka_producer( settings, logport, this->brokers, this->topic, this->undelivered_log_filepath );
-
-                sleep(1);
-
-                InotifyWatcher watcher( db, kafka_producer, *this, logport );  //expects undelivered log to exist
-                inotify_watcher_ptr = &watcher;
-
-                //register signal handler
-                signal( SIGINT, signal_handler_stop );
-                signal( SIGTERM, signal_handler_stop );
-
-                try{
-                     watcher.startWatching(); //main loop; blocks
-                     logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
-                     exit_code = 0;
-                }catch( std::exception &e ){
-                     logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
-                     exit_code = 1;
-                }
-
-
-            }catch( std::exception &e ){
-
-                 logport->getObserver().addLogEntry( "logport: watcher.start general exception: " + string(e.what()) );
-                 exit_code = 2;
-
-            }
-            
-            //exit must be called after the kafka_producer destructs (and not before)
-            exit(exit_code);
+            this->runNow( logport );
 
 
         }else if( pid == -1 ){
@@ -231,6 +236,65 @@ namespace logport{
     }
 
 
+
+    void Watch::runNow( LogPort* logport ){
+
+        int exit_code = 0;
+
+        try{
+
+            sleep(2);
+
+            Database db;
+            map<string,string> settings = db.getSettings();
+            unique_ptr<Producer> producer;
+
+            switch( this->producer_type ){
+
+                case ProducerType::KAFKA:
+                    producer = std::make_unique<KafkaProducer>( settings, logport, this->undelivered_log_filepath, this->brokers, this->topic );
+                    break;
+
+                case ProducerType::HTTP:
+                    producer = std::make_unique<HttpProducer>( settings, logport, this->undelivered_log_filepath, this->brokers );
+                    break;
+
+                default:
+                    throw std::runtime_error( "Unknown producer type." );
+
+            };
+
+            sleep(1);
+
+            InotifyWatcher watcher( db, *producer, *this, logport );  //expects undelivered log to exist
+            inotify_watcher_ptr = &watcher;
+
+            //register signal handler
+            signal( SIGINT, signal_handler_stop );
+            signal( SIGTERM, signal_handler_stop );
+
+            try{
+                watcher.startWatching(); //main loop; blocks
+                logport->getObserver().addLogEntry( "logport: watcher.watch completed: id(" + logport::to_string<int64_t>(this->id) + ") " + this->watched_filepath );
+                exit_code = 0;
+            }catch( std::exception &e ){
+                logport->getObserver().addLogEntry( "logport: watcher.watch exception: " + string(e.what()) );
+                exit_code = 1;
+            }
+
+        }catch( std::exception &e ){
+
+            const string error_message = string("logport: watcher.start general exception: ") + string(e.what());
+            cerr << error_message << endl;
+            logport->getObserver().addLogEntry( error_message );
+            exit_code = 2;
+
+        }
+
+        //exit must be called after the kafka_producer destructs (and not before)
+        exit(exit_code);
+
+    }
 
 
     void Watch::stop( LogPort* logport ){

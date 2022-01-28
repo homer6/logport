@@ -66,6 +66,7 @@ namespace logport{
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "filepath TEXT NOT NULL, "
                 "file_offset INTEGER DEFAULT 0, "
+                "producer_type TEXT NOT NULL, "
                 "brokers TEXT, "
                 "topic TEXT, "
                 "product_code TEXT, "

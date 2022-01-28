@@ -12,6 +12,9 @@ using std::vector;
 
 #include <fstream>
 
+#include "Producer.h"
+#include "UrlList.h"
+
 namespace logport{
 
 	class PreparedStatement;
@@ -22,16 +25,36 @@ namespace logport{
 
 	    public:
 	    	Watch();
+
+            /**
+             * Detects the ProducerType based on the Url schemes.
+             * Defaults to ProducerType::KAFKA. Selects ProducerType::HTTP if "http" or "https" scheme is used.
+             * @throws if schemes do not match
+             * @param brokers comma-separated list of Urls (ordered retained)
+             */
+            Watch( const string& brokers );
+
 	    	Watch( const PreparedStatement& statement );
 	    	Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset = 0, pid_t pid = -1 );
+
+            void setBrokers( const string& brokers );
+            void setProducerType( ProducerType producer_type );
+
+
+
 
 	        string watched_filepath;  			//eg. "/var/log/syslog"
 	        string undelivered_log_filepath;  	//eg. "/var/log/syslog_undelivered.log"
 
-	        string brokers;  					//csv separated
-	        string topic;						//eg. "my_logs"
+            ProducerType producer_type = ProducerType::KAFKA;
+            string producer_type_description = "KAFKA";
+
+            string brokers;  					//csv separated (include http path for http producer)
+	        string topic;						//eg. "my_logs" (unused for http producer)
 	        string product_code;				//eg. "prd123"
 	        string hostname;				    //eg. "my.hostname.com"
+
+            homer6::UrlList brokers_url_list;
 
 	        int64_t id;	        
 	        int64_t file_offset;
@@ -40,9 +63,8 @@ namespace logport{
 	        pid_t pid;
 	        pid_t last_pid;
 
-
-	    	
 	    	pid_t start( LogPort* logport );
+            void runNow( LogPort* logport ); //blocks; runs in current process
 	    	void stop( LogPort* logport );
 
 	    	void savePid( Database& db );

@@ -1,5 +1,4 @@
-#ifndef LOGPORT_KAFKA_PRODUCER_H
-#define LOGPORT_KAFKA_PRODUCER_H
+#pragma once
 
 #include <string>
 using std::string;
@@ -8,6 +7,7 @@ using std::string;
 using std::map;
 
 #include <librdkafka/rdkafka.h>
+#include "Producer.h"
 
 namespace logport{
 
@@ -16,39 +16,21 @@ namespace logport{
 
     /*
         Produces messages to kafka.
-        You can only safely have one KafkaProducer instantiated due to the static variables.
+        You can only safely have one KafkaProducer instantiated (per process) due to the static variables.
     */
-    class KafkaProducer{
+    class KafkaProducer : public Producer{
 
         public:
-            KafkaProducer( const map<string,string>& settings, LogPort* logport, const string &brokers_list, const string &topic, const string &undelivered_log );
-            ~KafkaProducer();
+            KafkaProducer( const map<string,string>& settings, LogPort* logport, const string& undelivered_log, const string& brokers_list, const string& topic );
+            virtual ~KafkaProducer() override;
 
-            void produce( const string& message ); 
-            //throws on failure  
-            //returns on success
-            //blocks on queue full
-
-
-            //void produceBatch() rd_kafka_produce_batch  TODO:implement
-
-            //TODO: implement rd_kafka_set_logger
-
-            void openUndeliveredLog();  //must be called 
-
-
-            void poll( int timeout_ms = 0 );
+            virtual void produce( const string& message ) override;
+            virtual void openUndeliveredLog() override;  //must be called before the first message is produced
+            virtual void poll( int timeout_ms = 0 ) override;
 
         protected:
-            const map<string,string>& settings;
-            LogPort* logport;
-
             string brokers_list;
             string topic;
-
-            int undelivered_log_fd;
-            string undelivered_log;
-            bool undelivered_log_open;
 
             rd_kafka_t *rk;             /* Producer instance handle */
             rd_kafka_topic_t *rkt;      /* Topic object */
@@ -60,4 +42,3 @@ namespace logport{
 }
 
 
-#endif //LOGPORT_KAFKA_PRODUCER_H

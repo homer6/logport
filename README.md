@@ -10,27 +10,36 @@ See the [Getting Started Guides](https://github.com/homer6/jetstream/tree/master
 
 ![Logport Architecture](https://raw.githubusercontent.com/homer6/logport/master/docs/resources/logport_architecture.jpg)
 
+## Status
+Stable. Deployed in production to several mission-critical projects.
+
 ## Features
-- One dependency (librdkafka). Builds for both librdkafka and logport provided.
-- Built with C++98 to support much older kernels and libc (but forward compatible too).
+- Produce file changes (using inotify) to multiple producers: kafka or http.
 - Saves unsuccessful messages and replays them to ensure that no messages are lost.
-- Saves successful offsets to prevent replaying sent log entries.
+- Runs as a system service that handles system restarts.
+- Saves (locally SQLite) successful offsets to prevent replaying sent log entries.
 - Fast, efficient, and stable (~15k msg/s and 1.8MB of memory consumed).
+- Small number of dependencies (librdkafka, libssl, libcrypto, libz).
+- Originally built with C++98 to support much older kernels and libc (but forward compatible too). However, logport recently switched to c++20 and is in the process of being upgraded.
 - Automatically restarts watches if killed or on failure.
 - Parent process monitors separate child processes and shuts them down if they exceed 256MB memory.
 - Optionally collects system telemetry at configurable intervals.
 - Integrated product codes for ease of adoption in enterprise settings.
-- You can easily modify the code to filter or scrub data before it's sent to kafka.
+- You can easily modify the code to filter or scrub data before it's sent to producers.
 
 ## Requirements
-- ubuntu 18 or OEL 5.11 ( please open an issue if you'd like support for your platform )
+- targets ubuntu 20
+- ubuntu 18 ( please open an issue if you'd like support for your platform )
 - 64 bit linux
 - libc 2.5+
 - linux kernel 2.6.9+
 - /usr/local/logport/logport.db must not be on an NFS mount
 
 ## Dependencies
-- rdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- librdkafka ( build included, but you can also install or build your own: https://syslogng-kafka.readthedocs.io/en/latest/installation_librdkafka.html or see OEL511.compile)
+- libssl
+- libcrypto
+- libz
 
 ## Quickstart (OnPrem)
 
@@ -226,7 +235,7 @@ logport uninstall
 ```
 git clone https://github.com/homer6/logport.git
 cd logport/
-sudo apt -y install cmake g++ librdkafka-dev
+sudo apt -y install cmake g++ librdkafka-dev libssl-dev libz-dev libpthread-stubs0-dev
 cmake .
 make
 cd build

@@ -7,7 +7,7 @@ using std::string;
 #include <vector>
 using std::vector;
 
-#include "KafkaProducer.h"
+#include "Producer.h"
 
 #include <fstream>
 
@@ -21,7 +21,7 @@ namespace logport{
     class InotifyWatcher{
 
         public:
-            InotifyWatcher( Database& db, KafkaProducer &kafka_producer, Watch& watch, LogPort* logport );
+            InotifyWatcher( Database& db, Producer &producer, Watch& watch, LogPort* logport );
             ~InotifyWatcher();
 
             void startWatching(); //throws on failure
@@ -42,7 +42,7 @@ namespace logport{
             string undelivered_log;
             int undelivered_log_fd;
 
-            KafkaProducer &kafka_producer;
+            Producer& producer;
 
             int inotify_fd;
             int inotify_watch_descriptor;

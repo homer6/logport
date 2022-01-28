@@ -5,7 +5,6 @@ project( logport CXX C )
 
 include_directories(
     include
-    # /usr/local/include/librdkafka
 )
 
 set( LOGPORT_SOURCES
@@ -17,7 +16,11 @@ set( LOGPORT_SOURCES
     src/PreparedStatement.cc
     src/LogPort.cc
     src/Watch.cc
+    src/Producer.cc
     src/KafkaProducer.cc
+    src/HttpProducer.cc
+    src/Url.cc
+    src/UrlList.cc
     src/InotifyWatcher.cc
     src/LevelTriggeredEpollWatcher.cc
     src/sqlite3.c
@@ -27,6 +30,9 @@ set( LOGPORT_LIBS
     rdkafka
     pthread
     dl
+    ssl
+    crypto
+    z
 )
 
 
@@ -36,11 +42,14 @@ set( LOGPORT_COMPILE_OPTIONS
     -Wall
     -Wextra
     -O3   
-    -std=c++98
-    -g
+    #-std=c++98
+    #-g
     #-std=gnu++11
     #-std=c++1y
-    #-std=c++17
+    -std=c++17
+    -DCPPHTTPLIB_OPENSSL_SUPPORT
+    -DCPPHTTPLIB_ZLIB_SUPPORT
+    -DCPPHTTPLIB_USE_POLL
 )
 
 add_executable( build/logport ${LOGPORT_SOURCES} src/logport_main.cc )
