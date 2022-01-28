@@ -116,6 +116,7 @@ namespace logport{
 
             HttpConnection connection;
 
+            connection.url = url;
             connection.format = format;
             connection.format_str = format_str;
             connection.secure = secure;
@@ -216,8 +217,6 @@ namespace logport{
 
                     const string batch_str = batch_json.dump();
                     connection.messages.clear();
-
-                    //cout << "send" << endl;
 
                     auto* connection_ptr = &connection;
                     this->pool.push_task([ connection_ptr, batch_str ]{

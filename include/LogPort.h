@@ -90,6 +90,7 @@ namespace logport{
 	        string getDefaultTopic();
 	        string getDefaultBrokers();
 	        string getDefaultProductCode();
+	        string getDefaultLogType();
 	        string getDefaultHostname();
 
 

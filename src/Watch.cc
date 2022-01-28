@@ -32,6 +32,10 @@ using std::endl;
 
 #include <stdlib.h>
 
+#include "json.hpp"
+using json = nlohmann::json;
+
+
 
 static logport::InotifyWatcher* inotify_watcher_ptr;
 
@@ -85,9 +89,20 @@ namespace logport{
         this->setBrokers( this->brokers );
 
         this->topic = statement.getText( 5 );
-        this->product_code = statement.getText( 6 );
-        this->hostname = statement.getText( 7 );
-        this->pid = statement.getInt32( 8 );
+
+        try{
+            this->product_code = statement.getText( 6 );
+        }catch( std::runtime_error& e ){
+
+        }
+        try{
+            this->log_type = statement.getText( 7 );
+        }catch( std::runtime_error& e ){
+
+        }
+
+        this->hostname = statement.getText( 8 );
+        this->pid = statement.getInt32( 9 );
 
         this->undelivered_log_filepath = this->watched_filepath + "_undelivered";
 
@@ -97,8 +112,8 @@ namespace logport{
     }
 
 
-    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset, pid_t pid )
-        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), hostname(hostname), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
+    Watch::Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& log_type, const string& hostname, int64_t file_offset, pid_t pid )
+        :watched_filepath(watched_filepath), undelivered_log_filepath(undelivered_log_filepath), brokers(brokers), topic(topic), product_code(product_code), log_type(log_type), hostname(hostname), id(0), file_offset(file_offset), pid(pid), last_pid(-1)
     {
         this->setBrokers( brokers );
     }
@@ -139,6 +154,7 @@ namespace logport{
         statement.bindText( current_offset++, this->brokers );
         statement.bindText( current_offset++, this->topic );
         statement.bindText( current_offset++, this->product_code );
+        statement.bindText( current_offset++, this->log_type );
         statement.bindText( current_offset++, this->hostname );
         statement.bindInt32( current_offset++, this->pid );
 
@@ -386,7 +402,23 @@ namespace logport{
             return filtered_log_line;
         }
 
+        json log_entry = json::object();
 
+        log_entry["@timestamp"] = get_timestamp();
+        if( this->hostname.size() ) log_entry["host"] = this->hostname;
+        if( this->watched_filepath.size() ) log_entry["source"] = this->watched_filepath;
+        if( this->product_code.size() ) log_entry["prd"] = this->product_code;
+        if( this->log_type.size() ) log_entry["log_type"] = this->log_type;
+
+        try{
+            json payload = json::parse( filtered_log_line );
+            log_entry["log_obj"] = payload;
+        }catch( std::runtime_error& e ){
+            log_entry["log"] = filtered_log_line;
+        }
+
+
+        /*
         string json_meta = "{\"@timestamp\":" + get_timestamp() + ",\"host\":\"" + this->hostname + "\",\"source\":\"" + this->watched_filepath + "\",\"prd\":\"" + this->product_code + "\"";
 
 
@@ -406,9 +438,9 @@ namespace logport{
                 return filtered_log_line;
 
             }
+        */
 
-
-        return filtered_log_line;
+        return log_entry.dump();
 
     }
 

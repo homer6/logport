@@ -44,6 +44,7 @@ namespace logport{
 
 
 	//format: 1556311722.644052770
+    //system time (not UTC)
 	string get_timestamp();
 
 

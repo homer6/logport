@@ -8,7 +8,8 @@ RUN /usr/local/lib/logport/install/logport install
 
 ENV LOGPORT_BROKERS 192.168.1.91
 ENV LOGPORT_TOPIC my_logs
-ENV LOGPORT_PRODUCT_CODE prd4096
+# ENV LOGPORT_PRODUCT_CODE prd4096
+# ENV LOGPORT_LOG_TYPE system
 ENV LOGPORT_HOSTNAME my.sample.hostname
 
 ENTRYPOINT [ "logport", "adopt" ]

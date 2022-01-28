@@ -35,7 +35,18 @@ namespace logport{
             Watch( const string& brokers );
 
 	    	Watch( const PreparedStatement& statement );
-	    	Watch( const string& watched_filepath, const string& undelivered_log_filepath, const string& brokers, const string& topic, const string& product_code, const string& hostname, int64_t file_offset = 0, pid_t pid = -1 );
+	    	Watch(
+                const string& watched_filepath,
+                const string& undelivered_log_filepath,
+                const string& brokers,
+                const string& topic,
+                const string& product_code,
+                const string& log_type,
+                const string& hostname,
+                int64_t file_offset = 0,
+                pid_t pid = -1
+            );
+
 
             void setBrokers( const string& brokers );
             void setProducerType( ProducerType producer_type );
@@ -52,6 +63,7 @@ namespace logport{
             string brokers;  					//csv separated (include http path for http producer)
 	        string topic;						//eg. "my_logs" (unused for http producer)
 	        string product_code;				//eg. "prd123"
+	        string log_type;				    //eg. "system"
 	        string hostname;				    //eg. "my.hostname.com"
 
             homer6::UrlList brokers_url_list;
