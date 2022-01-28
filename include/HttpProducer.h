@@ -36,7 +36,8 @@ namespace logport{
 
         public:
 
-            using http_client_ptr = std::unique_ptr<httplib::SSLClient>;
+            using http_client_ptr = std::unique_ptr<httplib::Client>;
+            using https_client_ptr = std::unique_ptr<httplib::SSLClient>;
             using settings_map = std::map<string,string>;
             enum struct FormatType{
                 JSON,
@@ -51,7 +52,9 @@ namespace logport{
                 FormatType format = FormatType::JSON;
                 string format_str;
                 bool compress = true;
+                bool secure = false;
                 http_client_ptr client;
+                https_client_ptr https_client;
                 httplib::Headers request_headers_template;
                 settings_map settings;
                 vector<string> messages;

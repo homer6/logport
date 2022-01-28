@@ -108,6 +108,7 @@ namespace logport{
         for( const homer6::Url& url : this->targets_url_list.urls ){
 
             unsigned short port = url.getPort();
+            const string scheme = url.getScheme();
             const string hostname = url.getHost();
             const bool secure = url.isSecure();
             const string path = url.getPath();
@@ -117,6 +118,7 @@ namespace logport{
 
             connection.format = format;
             connection.format_str = format_str;
+            connection.secure = secure;
             connection.compress = compress;
             connection.request_headers_template = httplib::Headers{
                 { "Host", hostname },
@@ -133,20 +135,19 @@ namespace logport{
             connection.full_path_template = url.getFullPath();
             connection.batch_size = batch_size;
 
-            if( secure ){
-                connection.client = std::make_unique<httplib::SSLClient>( hostname, port );
+            if( connection.secure ){
+                connection.https_client = std::make_unique<httplib::SSLClient>( hostname, port );
+                connection.https_client->set_keep_alive(true);
+                connection.https_client->set_follow_location(true);
+                connection.https_client->set_compress(connection.compress);
+            }else{
+                connection.client = std::make_unique<httplib::Client>( hostname, port );
                 connection.client->set_keep_alive(true);
                 connection.client->set_follow_location(true);
                 connection.client->set_compress(connection.compress);
-                this->connections.push_back( std::move(connection) );
-            }else{
-                const string error_message("Unencrypted (HTTP) connections are not supported.");
-                cerr << error_message << endl;
-                this->logport->getObserver().addLogEntry( error_message );
-                throw std::runtime_error(error_message);
-                //std::unique_ptr http_client = std::make_unique<httplib::Client>( hostname, port );
-                //this->connections.push_back( { url, std::move(http_client) } );
             }
+
+            this->connections.push_back( std::move(connection) );
 
         }
 
@@ -220,7 +221,11 @@ namespace logport{
 
                     auto* connection_ptr = &connection;
                     this->pool.push_task([ connection_ptr, batch_str ]{
-                        connection_ptr->client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
+                        if( connection_ptr->secure ){
+                            connection_ptr->https_client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
+                        }else{
+                            connection_ptr->client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
+                        }
                     });
 
                 }
