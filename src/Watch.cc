@@ -413,7 +413,7 @@ namespace logport{
         try{
             json payload = json::parse( filtered_log_line );
             log_entry["log_obj"] = payload;
-        }catch( std::runtime_error& e ){
+        }catch( std::exception& e ){
             log_entry["log"] = filtered_log_line;
         }
 
