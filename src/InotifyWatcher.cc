@@ -251,57 +251,78 @@ namespace logport{
         // If this->shutting_down == true (controlled by signal handler), this->run will be true
         while( this->run ){
 
-            if( !startup && epoll_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
-                //if there are new events waiting on the inotify_fd, read the events
-                    inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
-                    if( inotify_event_num_read == 0 ){
-                        //fprintf( stderr, "%% read() from inotify fd returned 0!" );
-                        throw std::runtime_error( "read() from inotify fd returned 0" );
-                    } 
+            if( !startup ){
 
-                    if( inotify_event_num_read == -1 ){
-                        //fprintf( stderr, "%% read() errno %d", errno );
-                        snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
-                        throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
-                    }
+                if( epoll_watcher.watch(1000) ){  //returns immediately if there are inotify events waiting; returns after 1000ms if no events;
 
-                    //printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
-
-
-                //process all of the inotify events
-
-                    for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
-
-                        in_event = (struct inotify_event *) p;
-
-                        if( in_event->mask & IN_MOVE_SELF ){
-                            //this is being logrotated
-                            log_being_rotated = true;
-                            try_read = true;
+                    //if there are new events waiting on the inotify_fd, read the events
+                        inotify_event_num_read = read( this->inotify_fd, inotify_event_buffer, INOTIFY_EVENT_BUFFER_LENGTH );
+                        if( inotify_event_num_read == 0 ){
+                            //fprintf( stderr, "%% read() from inotify fd returned 0!" );
+                            throw std::runtime_error( "read() from inotify fd returned 0" );
                         }
 
-                        if( in_event->mask & IN_MODIFY || in_event->mask & IN_CLOSE_WRITE ){
-                            //this is being modified
-                            //log_being_modified = true;
-                            try_read = true;
+                        if( inotify_event_num_read == -1 ){
+                            //fprintf( stderr, "%% read() errno %d", errno );
+                            snprintf(error_string_buffer, sizeof(error_string_buffer), "%d", errno);
+                            throw std::runtime_error( "read() from inotify fd returned errno " + string(error_string_buffer) );
                         }
 
-                        if( 0 ) displayInotifyEvent(in_event);
+                        //printf("Read %ld bytes from inotify fd\n", (long) inotify_event_num_read);
 
-                        p += sizeof(struct inotify_event) + in_event->len;
 
-                    }
+                    //process all of the inotify events
 
-                
+                        for( p = inotify_event_buffer; p < inotify_event_buffer + inotify_event_num_read; ){
 
-            }else{
+                            in_event = (struct inotify_event *) p;
 
-                //no events waiting on inotify_fd; timed out watching for 1000ms
+                            if( in_event->mask & IN_MOVE_SELF ){
+                                //this is being logrotated
+                                log_being_rotated = true;
+                                try_read = true;
+                            }
+
+                            if( in_event->mask & IN_MODIFY || in_event->mask & IN_CLOSE_WRITE ){
+                                //this is being modified
+                                //log_being_modified = true;
+                                try_read = true;
+                            }
+
+                            if( 0 ) displayInotifyEvent(in_event);
+
+                            p += sizeof(struct inotify_event) + in_event->len;
+
+                        }
+
+
+
+                }else{
+
+                    //we only want this to fire on timeout (not startup)
+                    //no events waiting on inotify_fd; timed out watching for 1000ms
+
+                    /* A producer application should continually serve
+                     * the delivery report queue by calling rd_kafka_poll()
+                     * at frequent intervals.
+                     * Either put the poll call in your main loop, or in a
+                     * dedicated thread, or call it after every
+                     * rd_kafka_produce() call.
+                     * Just make sure that rd_kafka_poll() is still called
+                     * during periods where you are not producing any messages
+                     * to make sure previously produced messages have their
+                     * delivery report callback served (and any other callbacks
+                     * you register). */
+                    this->producer.poll();
+
+                }
 
             }
 
-
+            if( this->producer.getType() == ProducerType::KAFKA ){
+                this->producer.poll();
+            }
                 
 
             if( startup || try_read || log_being_rotated ){
@@ -419,7 +440,7 @@ namespace logport{
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
                                 this->producer.produce( filtered_previous_log_partial );
-                                this->producer.poll();
+                                //this->producer.poll();
                                 previous_log_partial.clear();
                             }
 
@@ -439,7 +460,7 @@ namespace logport{
                             if( previous_log_partial.size() ){
                                 string filtered_previous_log_partial = this->filterLogLine( previous_log_partial );
                                 this->producer.produce( filtered_previous_log_partial );
-                                this->producer.poll();
+                                //this->producer.poll();
                                 previous_log_partial.clear();
                             }
 
@@ -464,21 +485,6 @@ namespace logport{
                     try_read = false;
 
             }
-
-
-
-            /* A producer application should continually serve
-             * the delivery report queue by calling rd_kafka_poll()
-             * at frequent intervals.
-             * Either put the poll call in your main loop, or in a
-             * dedicated thread, or call it after every
-             * rd_kafka_produce() call.
-             * Just make sure that rd_kafka_poll() is still called
-             * during periods where you are not producing any messages
-             * to make sure previously produced messages have their
-             * delivery report callback served (and any other callbacks
-             * you register). */
-            this->producer.poll();
 
 
 

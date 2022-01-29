@@ -56,6 +56,10 @@ namespace logport {
 
             virtual void poll( int timeout_ms = 0 ) = 0;  //called intermittently on another thread
 
+            virtual ProducerType getType() const{
+                return this->type;
+            }
+
         protected:
             ProducerType type = ProducerType::KAFKA;
             map<string, string> settings;

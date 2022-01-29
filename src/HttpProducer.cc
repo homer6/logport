@@ -28,6 +28,9 @@ using std::endl;
 #include "json.hpp"
 using json = nlohmann::json;
 
+#include <chrono>
+#include <thread>
+
 
 namespace logport{
 
@@ -39,13 +42,12 @@ namespace logport{
         :Producer( ProducerType::HTTP, {}, logport, undelivered_log ), targets_list(targets_list), targets_url_list(targets_list)
     {
 
-
         map<string,string> http_settings;
         //when these settings are set with 'logport set <key> <value>', they'll have the "http.producer." prefix on them.
         //eg. "logport set http.producer.batch.num.messages 100"
         //    "logport settings"
         http_settings["message.timeout.ms"] = "5000";   //5 seconds; this must be shorter than the timeout for flush below (in the deconstructor) or messages will be lost and not recorded in the undelivered_log
-        http_settings["batch.num.messages"] = "1";
+        http_settings["batch.num.messages"] = "1000";
         http_settings["compress"] = "true";  //gzip request
         http_settings["format"] = "application/json";
 
@@ -71,15 +73,9 @@ namespace logport{
             }
         }
 
-//        for( const auto& [key, value] : this->settings ){
-//            cout << "Settings: key(" << key << ") value(" << value << ")" << endl;
-//        }
-
         //create the connections
 
-
-        //cout << batch_size_str << endl;
-        uint32_t batch_size = 1;
+        uint32_t batch_size = 1000;
         try{
             const string batch_size_str = this->settings["batch.num.messages"];
             unsigned long batch_size_ul = std::stoul(batch_size_str);
@@ -105,6 +101,7 @@ namespace logport{
         }
 
 
+        //pre-compute the values so they're not computed on each message
         for( const homer6::Url& url : this->targets_url_list.urls ){
 
             unsigned short port = url.getPort();
@@ -113,6 +110,7 @@ namespace logport{
             const bool secure = url.isSecure();
             const string path = url.getPath();
             const string full_path = url.getFullPath();  //path + query + fragment
+
 
             HttpConnection connection;
 
@@ -126,14 +124,14 @@ namespace logport{
                 { "User-Agent", "logport" }
             };
 
-            const string username = url.getUsername();
-            const string password = url.getPassword();
+            const string username = connection.url.getUsername();
+            const string password = connection.url.getPassword();
             if( username.size() ){
                 const string basic_auth_credentials = logport::encodeBase64( username + ":" + password );
                 connection.request_headers_template.insert( { "Authorization", "Basic " + basic_auth_credentials } );
             }
 
-            connection.full_path_template = url.getFullPath();
+            connection.full_path_template = connection.url.getFullPath();
             connection.batch_size = batch_size;
 
             if( connection.secure ){
@@ -183,50 +181,20 @@ namespace logport{
 
             try{
 
-                connection.messages.push_back( message );
-                if( connection.messages.size() == connection.batch_size ){
+                bool should_flush = false;
 
-                    json batch_json = json::object();
-                    json messages_json = json::array();
+                {
+                    //critical section on connection.messages
+                    std::scoped_lock lock( this->model_mutex );
+                    connection.messages.push_back( message );
+                    if( connection.messages.size() == connection.batch_size ){
+                        should_flush = true;
+                    }
+                }
 
-                    switch( connection.format ){
-
-                        case FormatType::KAFKA_JSON_V2_JSON:
-                            for( const auto& message : connection.messages ){
-                                json record = json::object();
-                                record["value"] = json::parse(message);
-                                messages_json.push_back( std::move(record) );
-                            }
-                            batch_json["records"] = messages_json;
-
-                            break;
-
-                        case FormatType::JSON:
-                            for( const auto& message : connection.messages ){
-                                messages_json.push_back( json::parse(message) );
-                            }
-                            batch_json["messages"] = messages_json;
-                            batch_json["count"] = connection.messages.size();
-
-                            break;
-
-                        default:
-                            throw std::runtime_error("Unknown format.");
-
-                    };
-
-                    const string batch_str = batch_json.dump();
-                    connection.messages.clear();
-
-                    auto* connection_ptr = &connection;
-                    this->pool.push_task([ connection_ptr, batch_str ]{
-                        if( connection_ptr->secure ){
-                            connection_ptr->https_client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
-                        }else{
-                            connection_ptr->client->Post( connection_ptr->full_path_template.c_str(), connection_ptr->request_headers_template, batch_str, connection_ptr->format_str.c_str() );
-                        }
-                    });
-
+                if( should_flush ){
+                    //cout << "io flush" << endl;
+                    this->flush( &connection );  //this will lock on the mutex too
                 }
 
             }catch( const std::exception& e ){
@@ -247,6 +215,28 @@ namespace logport{
     void HttpProducer::poll( int /*timeout_ms*/ ){
 
         //rd_kafka_poll( this->rk, timeout_ms );
+        //cout << "poll" << endl;
+
+        //std::this_thread::sleep_for( std::chrono::milliseconds(1000) );
+
+        for( auto& connection : this->connections ){
+
+            bool should_flush = false;
+
+            {
+                //critical section on connection.messages
+                std::scoped_lock lock( this->model_mutex );
+                if( connection.messages.size() > 0 ){
+                    should_flush = true;
+                }
+            }
+
+            if( should_flush ){
+                //cout << "poll flush" << endl;
+                this->flush( &connection );  //this will lock on the mutex too
+            }
+
+        }
 
     }
 
@@ -279,6 +269,58 @@ namespace logport{
 
     }
 
+
+
+    void HttpProducer::flush( HttpConnection* connection ){
+
+        json batch_json = json::object();
+        json messages_json = json::array();
+
+        {
+            //critical section on connection->messages
+            std::scoped_lock lock( this->model_mutex );
+
+            switch( connection->format ){
+
+                case FormatType::KAFKA_JSON_V2_JSON:
+                    for( const auto& message : connection->messages ){
+                        json record = json::object();
+                        record["value"] = json::parse(message);
+                        messages_json.push_back( std::move(record) );
+                    }
+                    batch_json["records"] = messages_json;
+
+                    break;
+
+                case FormatType::JSON:
+                    for( const auto& message : connection->messages ){
+                        messages_json.push_back( json::parse(message) );
+                    }
+                    batch_json["messages"] = messages_json;
+                    batch_json["count"] = connection->messages.size();
+
+                    break;
+
+                default:
+                    throw std::runtime_error("Unknown format.");
+
+            };
+
+            connection->messages.clear();
+
+        }
+
+        const string batch_str = batch_json.dump();
+
+        this->pool.push_task([ connection, batch_str ]{
+            if( connection->secure ){
+                connection->https_client->Post( connection->full_path_template.c_str(), connection->request_headers_template, batch_str, connection->format_str.c_str() );
+            }else{
+                connection->client->Post( connection->full_path_template.c_str(), connection->request_headers_template, batch_str, connection->format_str.c_str() );
+            }
+        });
+
+    }
 
 
 }

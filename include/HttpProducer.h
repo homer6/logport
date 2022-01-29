@@ -24,7 +24,6 @@ using std::vector;
 #include <mutex>
 #include "thread_pool.hpp"
 
-
 namespace logport{
 
     class LogPort;
@@ -73,6 +72,9 @@ namespace logport{
             virtual void openUndeliveredLog() override;  //must be called before the first message is produced
             virtual void poll( int timeout_ms = 0 ) override;
 
+
+            virtual void flush( HttpConnection* connection );
+
         protected:
             string targets_list;
             uint32_t batch_size = 1;
@@ -82,7 +84,7 @@ namespace logport{
             http_connection_list connections;
 
             thread_pool pool{20};
-            //std::mutex model_mutex;
+            std::mutex model_mutex;
 
     };
 
