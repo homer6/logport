@@ -378,7 +378,7 @@ namespace logport{
 
         string filtered_log_line = unfiltered_log_line;
 
-
+        /*
         // add your pre-filtering code here
         size_t card_number_location = filtered_log_line.find( "\"card_number\":\"" );
         if( card_number_location != std::string::npos ){
@@ -393,8 +393,7 @@ namespace logport{
             }
 
         }
-        
-
+        */
 
         size_t log_length = filtered_log_line.size();
 
@@ -421,30 +420,6 @@ namespace logport{
                 log_entry["log"] = filtered_log_line;
             }
         }
-
-
-
-        /*
-        string json_meta = "{\"@timestamp\":" + get_timestamp() + ",\"host\":\"" + this->hostname + "\",\"source\":\"" + this->watched_filepath + "\",\"prd\":\"" + this->product_code + "\"";
-
-
-        //unstructured single-line log entry
-            if( filtered_log_line[0] != '{' ){
-
-                filtered_log_line = json_meta + ",\"log\":\"" + escape_to_json_string(filtered_log_line) + "\"}";
-                return filtered_log_line;
-
-            }
-
-        //embedded single-line JSON
-            if( filtered_log_line[0] == '{' ){
-
-                //this embedded single-line JSON MUST begin and end with a brace
-                filtered_log_line = json_meta + ",\"log_obj\":" + filtered_log_line + "}";
-                return filtered_log_line;
-
-            }
-        */
 
         return log_entry.dump();
 
