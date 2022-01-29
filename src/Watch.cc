@@ -410,12 +410,18 @@ namespace logport{
         if( this->product_code.size() ) log_entry["prd"] = this->product_code;
         if( this->log_type.size() ) log_entry["log_type"] = this->log_type;
 
-        try{
-            json payload = json::parse( filtered_log_line );
-            log_entry["log_obj"] = payload;
-        }catch( std::exception& e ){
+
+        if( filtered_log_line[0] != '{' && filtered_log_line[0] != '[' ){
             log_entry["log"] = filtered_log_line;
+        }else{
+            try{
+                json payload = json::parse( filtered_log_line );
+                log_entry["log_obj"] = payload;
+            }catch( std::exception& e ){
+                log_entry["log"] = filtered_log_line;
+            }
         }
+
 
 
         /*
