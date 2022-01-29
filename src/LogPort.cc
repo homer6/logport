@@ -107,7 +107,7 @@ static void signal_handler_pause_resume( int sig ){
 namespace logport{
 
 	LogPort::LogPort()
-		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), watches_paused(false), current_version("0.2.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
+		:db(NULL), inspector(NULL), observer(NULL), run(true), reload_required(false), watches_paused(false), current_version("0.3.0"), pid_filename("/var/run/logport.pid"), verbose_mode(false)
 	{
 
 
@@ -532,6 +532,8 @@ namespace logport{
 				"                                      (optional; defaults to setting: default.topic)\n"
 				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
 				"                                      (optional; defaults to setting: default.product_code)\n"
+				"  -l, --log-type [LOG_TYPE]           a user-defined category for the watch\n"
+				"                                      (optional; defaults to setting: default.log_type)\n"
 				"  -h, --hostname [HOSTNAME]           the name of this host that will appear in the log entries\n"
 				"                                      (optional; defaults to setting: default.hostname)"
 		<< endl;
@@ -576,6 +578,8 @@ namespace logport{
 				"                                      (optional; defaults to setting: default.topic)\n"
 				"  -p, --product-code [PRODUCT_CODE]   a code identifying a part of your organization or product\n"
 				"                                      (optional; defaults to setting: default.product_code)\n"
+				"  -l, --log-type [LOG_TYPE]           a user-defined category for the watch\n"
+				"                                      (optional; defaults to setting: default.log_type)\n"
 				"  -h, --hostname [HOSTNAME]           the name of this host that will appear in the log entries\n"
 				"                                      (optional; defaults to setting: default.hostname)"
 		<< endl;
@@ -635,6 +639,7 @@ namespace logport{
     		string this_brokers = this->getDefaultBrokers();
     		string this_topic = this->getDefaultTopic();
     		string this_product_code = this->getDefaultProductCode();
+    		string this_log_type = this->getDefaultLogType();
     		string this_hostname = this->getDefaultHostname();
 
     		int number_of_added_watches = 0;
@@ -709,6 +714,25 @@ namespace logport{
 
     			}
 
+    			if( current_argument == "--log-type" || current_argument == "-l" ){
+
+    				current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				this_log_type = this->command_line_arguments[ current_argument_offset ];
+
+					current_argument_offset++;
+    				if( current_argument_offset >= argc ){
+						this->printHelpWatch();
+						return -1;
+    				}
+    				continue;
+
+    			}
+
+
 
     			if( current_argument == "--hostname" || current_argument == "-h" ){
 
@@ -735,9 +759,10 @@ namespace logport{
 
     				if( is_last_argument ){
 
-						Watch watch{ this_brokers };
+						Watch watch{ this_brokers }; //automatically detects producer type based on Url scheme; throws on scheme mismatch
 						//watch.brokers = this_brokers;
 						watch.topic = this_topic;
+						watch.log_type = this_log_type;
 						watch.product_code = this_product_code;
 						watch.hostname = this_hostname;
 
@@ -753,6 +778,7 @@ namespace logport{
 					//watch.brokers = this_brokers;  //set in constructor above
 					watch.topic = this_topic;
 					watch.product_code = this_product_code;
+					watch.log_type = this_log_type;
 					watch.hostname = this_hostname;
 					watch.watched_filepath = get_real_filepath(current_argument);
 					watch.undelivered_log_filepath = watch.watched_filepath + "_undelivered";
@@ -981,7 +1007,25 @@ namespace logport{
 			return default_product_code;
 		}
 
-		return "prd000";
+		return "";
+
+	}
+
+
+	string LogPort::getDefaultLogType(){
+
+		string default_log_type_env = this->getEnvironmentVariable( "LOGPORT_LOG_TYPE" );
+		if( default_log_type_env.size() > 0 ){
+			return default_log_type_env;
+		}
+
+		string default_log_type = this->getSetting( "default.log_type" );
+
+		if( default_log_type.size() > 0 ){
+			return default_log_type;
+		}
+
+		return "";
 
 	}
 
@@ -1023,6 +1067,7 @@ namespace logport{
 		column_labels.push_back( "brokers" );
 		column_labels.push_back( "topic" );
 		column_labels.push_back( "product_code" );
+		column_labels.push_back( "log_type" );
 		column_labels.push_back( "hostname" );
 		column_labels.push_back( "file_offset_sent" );
 		column_labels.push_back( "pid" );
@@ -1073,9 +1118,14 @@ namespace logport{
 						column_widths_maximums[5] = watch.product_code.size();
 					}
 
+				// log_type
+					if( watch.log_type.size() > column_widths_maximums[6] ){
+						column_widths_maximums[6] = watch.log_type.size();
+					}
+
 				// hostname
-					if( watch.hostname.size() > column_widths_maximums[6] ){
-						column_widths_maximums[6] = watch.hostname.size();
+					if( watch.hostname.size() > column_widths_maximums[7] ){
+						column_widths_maximums[7] = watch.hostname.size();
 					}
 
 				// file_offset
@@ -1083,8 +1133,8 @@ namespace logport{
 					file_offset_stringstream << watch.file_offset;
 					string file_offset_string = file_offset_stringstream.str();
 
-					if( file_offset_string.size() > column_widths_maximums[7] ){
-						column_widths_maximums[7] = file_offset_string.size();
+					if( file_offset_string.size() > column_widths_maximums[8] ){
+						column_widths_maximums[8] = file_offset_string.size();
 					}
 
 				// pid
@@ -1092,8 +1142,8 @@ namespace logport{
 					pid_stringstream << watch.pid;
 					string pid_string = pid_stringstream.str();
 
-					if( pid_string.size() > column_widths_maximums[8] ){
-						column_widths_maximums[8] = pid_string.size();
+					if( pid_string.size() > column_widths_maximums[9] ){
+						column_widths_maximums[9] = pid_string.size();
 					}
 
 			}
@@ -1142,9 +1192,10 @@ namespace logport{
 			cout << std::left << std::setw(column_widths_maximums[3]) << watch.brokers << " | ";
 			cout << std::left << std::setw(column_widths_maximums[4]) << watch.topic << " | ";
 			cout << std::left << std::setw(column_widths_maximums[5]) << watch.product_code << " | ";
-			cout << std::left << std::setw(column_widths_maximums[6]) << watch.hostname << " | ";
-			cout << std::right << std::setw(column_widths_maximums[7]) << watch.file_offset << " | ";
-			cout << std::right << std::setw(column_widths_maximums[8]) << watch.pid << endl;
+			cout << std::left << std::setw(column_widths_maximums[6]) << watch.log_type << " | ";
+			cout << std::left << std::setw(column_widths_maximums[7]) << watch.hostname << " | ";
+			cout << std::right << std::setw(column_widths_maximums[8]) << watch.file_offset << " | ";
+			cout << std::right << std::setw(column_widths_maximums[9]) << watch.pid << endl;
 
 		}
 
@@ -1156,7 +1207,7 @@ namespace logport{
 
 		Database& db = this->getDatabase();
 
-		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, producer_type, brokers, topic, product_code, hostname, pid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? );" );
+		PreparedStatement statement( db, "INSERT INTO watches ( filepath, file_offset, producer_type, brokers, topic, product_code, log_type, hostname, pid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? );" );
 
 		watch.bind( statement, true );
 

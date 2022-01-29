@@ -260,7 +260,7 @@ namespace logport{
             char buffer[50];
 
             // thanks to https://stackoverflow.com/a/8304728/278976
-            sprintf( buffer, "%lld.%.9ld", (long long)current_time.tv_sec, current_time.tv_nsec );
+            snprintf( buffer, 50, "%lld.%.9ld", (long long)current_time.tv_sec, current_time.tv_nsec );
             current_time_string = string(buffer);
 
         }

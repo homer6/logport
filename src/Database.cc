@@ -70,6 +70,7 @@ namespace logport{
                 "brokers TEXT, "
                 "topic TEXT, "
                 "product_code TEXT, "
+                "log_type TEXT, "
                 "hostname TEXT, "
                 "pid INTEGER DEFAULT -1 "
             ")"
