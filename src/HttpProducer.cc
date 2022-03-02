@@ -91,6 +91,7 @@ namespace logport{
             if( !metadata_temp.is_object() ){
                 throw std::runtime_error("Metadata JSON expects a JSON object.");
             }
+            metadata = metadata_temp;
         }catch( std::exception& e ){
             //failed to parse metadata
             throw e;
