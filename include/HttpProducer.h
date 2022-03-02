@@ -24,6 +24,10 @@ using std::vector;
 #include <mutex>
 #include "thread_pool.hpp"
 
+#include "json.hpp"
+using json = nlohmann::json;
+
+
 namespace logport{
 
     class LogPort;
@@ -57,6 +61,7 @@ namespace logport{
                 httplib::Headers request_headers_template;
                 settings_map settings;
                 vector<string> messages;
+                json metadata;
             };
 
             using http_connection_list = std::vector<HttpConnection>;

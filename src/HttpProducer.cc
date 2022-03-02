@@ -25,9 +25,6 @@ using std::endl;
 
 #include "Common.h"
 
-#include "json.hpp"
-using json = nlohmann::json;
-
 #include <chrono>
 #include <thread>
 
@@ -50,6 +47,7 @@ namespace logport{
         http_settings["batch.num.messages"] = "1000";
         http_settings["compress"] = "true";  //gzip request
         http_settings["format"] = "application/json";
+        http_settings["metadata"] = "{}"; //json metadata that will be sent with each message (if keys set)
 
 
         //copy over the overridden logport http producer settings
@@ -85,6 +83,19 @@ namespace logport{
         }catch( std::exception& ){
 
         }
+
+        json metadata = json::object();
+        try{
+            const string metadata_str = this->settings["metadata"];
+            json metadata_temp = json::parse( metadata_str );
+            if( !metadata_temp.is_object() ){
+                throw std::runtime_error("Metadata JSON expects a JSON object.");
+            }
+        }catch( std::exception& e ){
+            //failed to parse metadata
+            throw e;
+        }
+
 
 
         FormatType format = FormatType::JSON;
@@ -146,7 +157,11 @@ namespace logport{
                 connection.client->set_compress(connection.compress);
             }
 
+            connection.metadata = metadata;
+
             this->connections.push_back( std::move(connection) );
+
+
 
         }
 
@@ -285,7 +300,13 @@ namespace logport{
                 case FormatType::KAFKA_JSON_V2_JSON:
                     for( const auto& message : connection->messages ){
                         json record = json::object();
-                        record["value"] = json::parse(message);
+                        json temp_object = json::parse(message);
+                        if( connection->metadata.size() > 0 ){
+                            for( const auto& [key, value] : connection->metadata.items() ){
+                                temp_object[key] = value;
+                            }
+                        }
+                        record["value"] = temp_object;
                         messages_json.push_back( std::move(record) );
                     }
                     batch_json["records"] = messages_json;
